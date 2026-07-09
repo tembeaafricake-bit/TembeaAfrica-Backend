@@ -114,20 +114,30 @@ export class AuthService {
     }
   }
 
-  async handleGoogleAuth(profile: { id: string; emails: { value: string }[]; displayName: string; photos: { value: string }[] }) {
-    const email = profile.emails[0]?.value
+  async handleGoogleAuth(profile: any) {
+    const email = profile.email || (profile.emails && profile.emails[0]?.value)
+    if (!email) {
+      throw new BadRequestException('No email address provided by Google')
+    }
+
     let user = await this.userModel.findOne({ email: email.toLowerCase() })
     if (!user) {
-      const nameParts = profile.displayName.split(' ')
+      const displayName = profile.name || profile.displayName || ''
+      const nameParts = displayName.split(' ')
+      const firstName = profile.given_name || nameParts[0] || 'Google'
+      const lastName = profile.family_name || nameParts.slice(1).join(' ') || 'User'
+      const avatar = profile.picture || (profile.photos && profile.photos[0]?.value)
+      const googleId = profile.sub || profile.id
+
       user = await this.userModel.create({
         email: email.toLowerCase(),
-        firstName: nameParts[0] || 'Google',
-        lastName: nameParts.slice(1).join(' ') || 'User',
-        avatar: profile.photos[0]?.value,
-        googleId: profile.id,
+        firstName,
+        lastName,
+        avatar,
+        googleId,
         role: 'tourist',
         isVerified: true,
-        password: await bcrypt.hash(profile.id + Date.now(), 12),
+        password: await bcrypt.hash((googleId || 'google') + Date.now(), 12),
       })
     }
     return { user: this.sanitizeUser(user), ...this.generateTokens(user) }
