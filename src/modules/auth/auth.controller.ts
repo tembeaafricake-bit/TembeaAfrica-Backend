@@ -1,4 +1,5 @@
-import { Controller, Post, Get, Body, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common'
+import { Controller, Post, Get, Body, Req, Res, UseGuards, HttpCode, HttpStatus } from '@nestjs/common'
+import { Response } from 'express'
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
 import { Throttle } from '@nestjs/throttler'
 import { AuthService } from './auth.service'
@@ -67,11 +68,24 @@ export class AuthController {
 
   @Get('google')
   @ApiOperation({ summary: 'Redirect to Google OAuth login' })
-  async googleAuth(@Req() req: any) {
-    return {
-      message: 'Redirect to Google OAuth',
-      url: process.env.GOOGLE_OAUTH_URL || 'https://accounts.google.com/o/oauth2/v2/auth',
+  async googleAuth(@Res() res: Response) {
+    const clientId = process.env.GOOGLE_CLIENT_ID
+    const redirectUri = process.env.GOOGLE_CALLBACK_URL
+    const scope = 'openid profile email'
+    const responseType = 'code'
+    
+    if (!clientId || !redirectUri) {
+      return res.status(500).json({ error: 'Google OAuth not configured' })
     }
+
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+      `client_id=${clientId}&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+      `response_type=${responseType}&` +
+      `scope=${encodeURIComponent(scope)}&` +
+      `access_type=offline`
+
+    return res.redirect(googleAuthUrl)
   }
 
   @Get('google/callback')
