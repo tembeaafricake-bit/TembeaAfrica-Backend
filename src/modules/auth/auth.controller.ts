@@ -92,7 +92,7 @@ export class AuthController {
     return res.redirect(googleAuthUrl)
   }
 
-  @Get('google/callback')
+  @Get(['google/callback', 'callback/google'])
   @ApiOperation({ summary: 'Google OAuth callback handler' })
   async googleCallback(@Req() req: Request, @Res() res: Response) {
     const code = req.query.code as string
