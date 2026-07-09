@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose'
 import { ThrottlerModule } from '@nestjs/throttler'
 import { EventEmitterModule } from '@nestjs/event-emitter'
 import { ScheduleModule } from '@nestjs/schedule'
+import { AppController } from './app.controller'
 
 import { AuthModule } from './modules/auth/auth.module'
 import { UsersModule } from './modules/users/users.module'
@@ -65,5 +66,6 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     AdminModule,
     NotificationsModule,
   ],
+  controllers: [AppController],
 })
 export class AppModule {}
