@@ -64,4 +64,13 @@ export class AuthController {
   async logout() {
     return { message: 'Logged out successfully' }
   }
+
+  @Get('google')
+  @ApiOperation({ summary: 'Redirect to Google OAuth login' })
+  async googleAuth(@Req() req: any) {
+    return {
+      message: 'Redirect to Google OAuth',
+      url: process.env.GOOGLE_OAUTH_URL || 'https://accounts.google.com/o/oauth2/v2/auth',
+    }
+  }
 }
