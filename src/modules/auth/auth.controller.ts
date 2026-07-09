@@ -73,4 +73,18 @@ export class AuthController {
       url: process.env.GOOGLE_OAUTH_URL || 'https://accounts.google.com/o/oauth2/v2/auth',
     }
   }
+
+  @Get('google/callback')
+  @ApiOperation({ summary: 'Google OAuth callback handler' })
+  async googleCallback(@Req() req: any) {
+    const { code, state } = req.query
+    if (!code) {
+      return { error: 'Missing authorization code' }
+    }
+    return {
+      message: 'Google callback received',
+      code,
+      state,
+    }
+  }
 }
