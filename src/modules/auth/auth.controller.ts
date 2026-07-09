@@ -1,5 +1,6 @@
 import { Controller, Post, Get, Body, Req, Res, UseGuards, HttpCode, HttpStatus } from '@nestjs/common'
-import { Response } from 'express'
+import { Request, Response } from 'express'
+import axios from 'axios'
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
 import { Throttle } from '@nestjs/throttler'
 import { AuthService } from './auth.service'
@@ -68,12 +69,14 @@ export class AuthController {
 
   @Get('google')
   @ApiOperation({ summary: 'Redirect to Google OAuth login' })
-  async googleAuth(@Res() res: Response) {
+  async googleAuth(@Req() req: Request, @Res() res: Response) {
     const clientId = process.env.GOOGLE_CLIENT_ID
     const redirectUri = process.env.GOOGLE_CALLBACK_URL
     const scope = 'openid profile email'
     const responseType = 'code'
-    
+    const nextPath = (req.query.next as string) || ''
+    const state = nextPath ? `next=${encodeURIComponent(nextPath)}` : ''
+
     if (!clientId || !redirectUri) {
       return res.status(500).json({ error: 'Google OAuth not configured' })
     }
@@ -83,22 +86,58 @@ export class AuthController {
       `redirect_uri=${encodeURIComponent(redirectUri)}&` +
       `response_type=${responseType}&` +
       `scope=${encodeURIComponent(scope)}&` +
-      `access_type=offline`
+      `access_type=offline` +
+      (state ? `&state=${encodeURIComponent(state)}` : '')
 
     return res.redirect(googleAuthUrl)
   }
 
   @Get('google/callback')
   @ApiOperation({ summary: 'Google OAuth callback handler' })
-  async googleCallback(@Req() req: any) {
-    const { code, state } = req.query
+  async googleCallback(@Req() req: Request, @Res() res: Response) {
+    const code = req.query.code as string
+    const state = req.query.state as string
+    const nextPath = state?.startsWith('next=') ? decodeURIComponent(state.slice(5)) : ''
+
     if (!code) {
-      return { error: 'Missing authorization code' }
+      return res.redirect(`${process.env.FRONTEND_URL || 'https://www.tembeaafrica.com'}/auth/login?error=google_missing_code`)
     }
-    return {
-      message: 'Google callback received',
-      code,
-      state,
+
+    const tokenEndpoint = 'https://oauth2.googleapis.com/token'
+    const clientId = process.env.GOOGLE_CLIENT_ID
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET
+    const redirectUri = process.env.GOOGLE_CALLBACK_URL
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'https://www.tembeaafrica.com'}/auth/login?error=google_oauth_not_configured`)
+    }
+
+    try {
+      const tokenResponse = await axios.post(tokenEndpoint, new URLSearchParams({
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }).toString(), {
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      })
+
+      const { access_token } = tokenResponse.data
+      const userInfoResponse = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${access_token}` },
+      })
+
+      const authResult = await this.authService.handleGoogleAuth(userInfoResponse.data)
+      const frontendUrl = process.env.FRONTEND_URL || 'https://www.tembeaafrica.com'
+      const params = new URLSearchParams({
+        accessToken: authResult.accessToken,
+        refreshToken: authResult.refreshToken,
+        ...(nextPath ? { next: nextPath } : {}),
+      })
+      return res.redirect(`${frontendUrl}/auth/login?${params.toString()}`)
+    } catch (error) {
+      return res.redirect(`${process.env.FRONTEND_URL || 'https://www.tembeaafrica.com'}/auth/login?error=google_auth_failed`)
     }
   }
 }
