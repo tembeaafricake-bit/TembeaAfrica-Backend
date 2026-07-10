@@ -6,7 +6,7 @@ dotenv.config()
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/tembea-africa'
 
 async function seed() {
-  console.log('🌱 Connecting to MongoDB...')
+  console.log("🌱 Connecting to:", MONGODB_URI);
   // Connect and ensure the underlying driver `db` is available
   const conn = await mongoose.connect(MONGODB_URI)
   console.log('✅ Connected (mongoose)')
