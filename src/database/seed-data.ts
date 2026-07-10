@@ -16,7 +16,7 @@ export interface SeedConfig {
 }
 
 export async function generateSeedData(): Promise<SeedConfig> {
-  const hashedPassword = await bcrypt.hash('Admin@123', 12)
+  const hashedPassword = await bcrypt.hash('Hamp9map....#', 12)
 
   // ─── USERS ─────────────────────────────────────────────────────────────────
   const users = [
@@ -24,7 +24,7 @@ export async function generateSeedData(): Promise<SeedConfig> {
       _id: 'admin-user-id',
       firstName: 'Admin',
       lastName: 'Tembea',
-      email: 'admin@tembeaafrica.com',
+      email: 'tembeaafricake@gmail.com',
       password: hashedPassword,
       role: 'admin',
       isVerified: true,

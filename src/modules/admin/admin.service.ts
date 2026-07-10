@@ -208,7 +208,7 @@ export class AdminService {
         message: '✅ Database seeded successfully!',
         details: results,
         loginCredentials: {
-          admin: { email: 'admin@tembeaafrica.com', password: 'Admin@123' },
+          admin: { email: 'tembeaafricake@gmail.com', password: 'Hamp9map....#' },
           guide: { email: 'joseph@tembeaafrica.com', password: 'Admin@123' },
           tourist: { email: 'john@example.com', password: 'Admin@123' },
           operator: { email: 'operator@marasafaris.com', password: 'Admin@123' },
