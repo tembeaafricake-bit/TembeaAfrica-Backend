@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common'
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
 import { User, UserDocument } from '../users/schemas/user.schema'
@@ -32,7 +32,7 @@ export class AdminService {
       totalUsers, newUsersThisMonth, newUsersLastMonth,
       totalBookings, bookingsThisMonth, bookingsLastMonth,
       revenueResult, revenueLastMonthResult,
-      totalTours, totalReviews,
+      totalTours, totalReviews, totalDestinations, totalGuides, totalAccommodations,
       bookingsByStatus, revenueByMonth,
     ] = await Promise.all([
       this.userModel.countDocuments(),
@@ -45,6 +45,9 @@ export class AdminService {
       this.bookingModel.aggregate([{ $match: { paymentStatus: 'paid', createdAt: { $gte: startOfLastMonth, $lte: endOfLastMonth } } }, { $group: { _id: null, total: { $sum: '$totalAmount' } } }]),
       this.tourModel.countDocuments({ isDeleted: false }),
       this.reviewModel.countDocuments({ isDeleted: false }),
+      this.destinationModel.countDocuments({ isDeleted: false }),
+      this.guideModel.countDocuments({ isDeleted: false }),
+      this.accommodationModel.countDocuments({ isDeleted: false }),
       this.bookingModel.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
       this.bookingModel.aggregate([
         { $match: { paymentStatus: 'paid', createdAt: { $gte: new Date(now.getFullYear(), 0, 1) } } },
@@ -61,7 +64,7 @@ export class AdminService {
       users: { total: totalUsers, thisMonth: newUsersThisMonth, growth: newUsersLastMonth > 0 ? ((newUsersThisMonth - newUsersLastMonth) / newUsersLastMonth) * 100 : 0 },
       bookings: { total: totalBookings, thisMonth: bookingsThisMonth, growth: bookingsLastMonth > 0 ? ((bookingsThisMonth - bookingsLastMonth) / bookingsLastMonth) * 100 : 0 },
       revenue: { thisMonth: revenue, commission: revenueResult[0]?.commission || 0, growth: revenueGrowth },
-      listings: { tours: totalTours, reviews: totalReviews },
+      listings: { tours: totalTours, reviews: totalReviews, destinations: totalDestinations, guides: totalGuides, accommodations: totalAccommodations },
       bookingsByStatus: Object.fromEntries(bookingsByStatus.map((b: any) => [b._id, b.count])),
       revenueByMonth,
     }
@@ -108,6 +111,97 @@ export class AdminService {
 
   async updateBookingStatus(id: string, status: string) {
     return this.bookingModel.findByIdAndUpdate(id, { status }, { new: true }).populate('user', 'firstName lastName email')
+  }
+
+  async getListings(type: string, query: Record<string, unknown>) {
+    const { page = 1, limit = 20, q, status } = query
+    const skip = ((page as number) - 1) * (limit as number)
+    const filter: Record<string, unknown> = { isDeleted: false }
+    if (status) filter.status = status
+    if (q) {
+      filter.$or = [
+        { name: new RegExp(q as string, 'i') },
+        { title: new RegExp(q as string, 'i') },
+        { description: new RegExp(q as string, 'i') },
+        { bio: new RegExp(q as string, 'i') },
+        { category: new RegExp(q as string, 'i') },
+      ]
+    }
+
+    let model: Model<any>
+    let sort: Record<string, 1 | -1> = { createdAt: -1 }
+    switch (type) {
+      case 'destinations':
+        model = this.destinationModel
+        break
+      case 'tours':
+        model = this.tourModel
+        break
+      case 'guides':
+        model = this.guideModel
+        break
+      case 'accommodations':
+        model = this.accommodationModel
+        break
+      default:
+        throw new BadRequestException('Invalid listing type')
+    }
+
+    const [data, total] = await Promise.all([
+      model.find(filter).sort(sort).skip(skip).limit(limit as number).lean(),
+      model.countDocuments(filter),
+    ])
+
+    return { data, total, page, limit, totalPages: Math.ceil(total / (limit as number)) }
+  }
+
+  async createListing(type: string, data: Record<string, unknown>) {
+    switch (type) {
+      case 'destinations': {
+        const slug = this.generateSlug(data.name as string)
+        return this.destinationModel.create({ ...data, slug })
+      }
+      case 'tours': {
+        const slug = this.generateSlug(data.title as string)
+        return this.tourModel.create({ ...data, slug })
+      }
+      case 'guides':
+        return this.guideModel.create(data)
+      case 'accommodations': {
+        const slug = this.generateSlug(data.name as string)
+        return this.accommodationModel.create({ ...data, slug })
+      }
+      default:
+        throw new BadRequestException('Invalid listing type')
+    }
+  }
+
+  async updateListingStatus(type: string, id: string, status: string) {
+    let model: Model<any>
+    switch (type) {
+      case 'destinations':
+        model = this.destinationModel
+        break
+      case 'tours':
+        model = this.tourModel
+        break
+      case 'guides':
+        model = this.guideModel
+        break
+      case 'accommodations':
+        model = this.accommodationModel
+        break
+      default:
+        throw new BadRequestException('Invalid listing type')
+    }
+
+    const item = await model.findByIdAndUpdate(id, { status }, { new: true })
+    if (!item) throw new NotFoundException('Listing not found')
+    return item
+  }
+
+  private generateSlug(value: string) {
+    return `${(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${Date.now()}`
   }
 
   async getReviews(query: Record<string, unknown>) {

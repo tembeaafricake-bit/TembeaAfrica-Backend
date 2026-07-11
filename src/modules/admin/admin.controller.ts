@@ -41,6 +41,24 @@ export class AdminController {
   @ApiOperation({ summary: 'Update booking status' })
   updateBookingStatus(@Param('id') id: string, @Body('status') status: string) { return this.adminService.updateBookingStatus(id, status) }
 
+  @Get('listings')
+  @ApiOperation({ summary: 'List admin-managed listings' })
+  getListings(@Query('type') type: string, @Query() query: Record<string, unknown>) {
+    return this.adminService.getListings(type, query)
+  }
+
+  @Post('listings')
+  @ApiOperation({ summary: 'Create a destination, tour, guide, or accommodation' })
+  createListing(@Query('type') type: string, @Body() body: Record<string, unknown>) {
+    return this.adminService.createListing(type, body)
+  }
+
+  @Patch(':type/:id/status')
+  @ApiOperation({ summary: 'Update listing status' })
+  updateListingStatus(@Param('type') type: string, @Param('id') id: string, @Body('status') status: string) {
+    return this.adminService.updateListingStatus(type, id, status)
+  }
+
   @Get('reviews')
   @ApiOperation({ summary: 'List all reviews' })
   getReviews(@Query() query: Record<string, unknown>) { return this.adminService.getReviews(query) }
