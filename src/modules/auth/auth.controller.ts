@@ -70,14 +70,16 @@ export class AuthController {
   @Get('google')
   @ApiOperation({ summary: 'Redirect to Google OAuth login' })
   async googleAuth(@Req() req: Request, @Res() res: Response) {
+    const host = req.get('host') || 'localhost:3001'
+    const protocol = req.protocol || 'http'
     const clientId = process.env.GOOGLE_CLIENT_ID
-    const redirectUri = process.env.GOOGLE_CALLBACK_URL
+    const redirectUri = process.env.GOOGLE_CALLBACK_URL || `${protocol}://${host}/api/auth/google/callback`
     const scope = 'openid profile email'
     const responseType = 'code'
     const nextPath = (req.query.next as string) || ''
     const state = nextPath ? `next=${encodeURIComponent(nextPath)}` : ''
 
-    if (!clientId || !redirectUri) {
+    if (!clientId) {
       return res.status(500).json({ error: 'Google OAuth not configured' })
     }
 
@@ -98,18 +100,21 @@ export class AuthController {
     const code = req.query.code as string
     const state = req.query.state as string
     const nextPath = state?.startsWith('next=') ? decodeURIComponent(state.slice(5)) : ''
+    const host = req.get('host') || 'localhost:3001'
+    const protocol = req.protocol || 'http'
+    const frontendUrl = process.env.FRONTEND_URL || (host.includes('localhost') || host.includes('127.0.0.1') ? 'http://localhost:3000' : `${protocol}://${host}`)
 
     if (!code) {
-      return res.redirect(`${process.env.FRONTEND_URL || 'https://www.tembeaafrica.com'}/auth/login?error=google_missing_code`)
+      return res.redirect(`${frontendUrl}/auth/login?error=google_missing_code`)
     }
 
     const tokenEndpoint = 'https://oauth2.googleapis.com/token'
     const clientId = process.env.GOOGLE_CLIENT_ID
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-    const redirectUri = process.env.GOOGLE_CALLBACK_URL
+    const redirectUri = process.env.GOOGLE_CALLBACK_URL || `${protocol}://${host}/api/auth/google/callback`
 
-    if (!clientId || !clientSecret || !redirectUri) {
-      return res.redirect(`${process.env.FRONTEND_URL || 'https://www.tembeaafrica.com'}/auth/login?error=google_oauth_not_configured`)
+    if (!clientId || !clientSecret) {
+      return res.redirect(`${frontendUrl}/auth/login?error=google_oauth_not_configured`)
     }
 
     try {
@@ -129,7 +134,6 @@ export class AuthController {
       })
 
       const authResult = await this.authService.handleGoogleAuth(userInfoResponse.data)
-      const frontendUrl = process.env.FRONTEND_URL || 'https://www.tembeaafrica.com'
       const params = new URLSearchParams({
         accessToken: authResult.accessToken,
         refreshToken: authResult.refreshToken,
@@ -137,7 +141,7 @@ export class AuthController {
       })
       return res.redirect(`${frontendUrl}/auth/login?${params.toString()}`)
     } catch (error) {
-      return res.redirect(`${process.env.FRONTEND_URL || 'https://www.tembeaafrica.com'}/auth/login?error=google_auth_failed`)
+      return res.redirect(`${frontendUrl}/auth/login?error=google_auth_failed`)
     }
   }
 }
