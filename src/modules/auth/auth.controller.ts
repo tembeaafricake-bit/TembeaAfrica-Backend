@@ -149,8 +149,7 @@ export class AuthController {
     const protocol = req.protocol || 'http'
     const clientId = process.env.GOOGLE_CLIENT_ID
     
-    const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
-    const redirectUri = (isLocal ? null : process.env.GOOGLE_CALLBACK_URL) || `${protocol}://${host}/api/auth/google/callback`
+    const redirectUri = process.env.GOOGLE_CALLBACK_URL || `${protocol}://${host}/api/auth/google/callback`
     
     const scope = 'openid profile email'
     const responseType = 'code'
@@ -181,8 +180,7 @@ export class AuthController {
     const host = req.get('host') || 'localhost:3001'
     const protocol = req.protocol || 'http'
     
-    const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
-    const frontendUrl = (isLocal ? null : process.env.FRONTEND_URL) || 'http://localhost:3000'
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
 
     if (!code) {
       return res.redirect(`${frontendUrl}/auth/login?error=google_missing_code`)
@@ -191,7 +189,7 @@ export class AuthController {
     const tokenEndpoint = 'https://oauth2.googleapis.com/token'
     const clientId = process.env.GOOGLE_CLIENT_ID
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-    const redirectUri = (isLocal ? null : process.env.GOOGLE_CALLBACK_URL) || `${protocol}://${host}/api/auth/google/callback`
+    const redirectUri = process.env.GOOGLE_CALLBACK_URL || `${protocol}://${host}/api/auth/google/callback`
 
     if (!clientId || !clientSecret) {
       return res.redirect(`${frontendUrl}/auth/login?error=google_oauth_not_configured`)
