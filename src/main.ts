@@ -5,12 +5,14 @@ import { AppModule } from './app.module'
 import helmet from 'helmet'
 import compression from 'compression'
 import morgan from 'morgan'
+import cookieParser from 'cookie-parser'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: false })
 
   // Security
   app.use(helmet())
+  app.use(cookieParser())
   app.use(compression())
   app.use(morgan('combined'))
 

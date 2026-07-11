@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Req, Res, UseGuards, HttpCode, HttpStatus } from '@nestjs/common'
+import { Controller, Post, Get, Body, Req, Res, UseGuards, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common'
 import { Request, Response } from 'express'
 import axios from 'axios'
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
@@ -17,23 +17,86 @@ export class AuthController {
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOperation({ summary: 'Register a new user account' })
-  async register(@Body() dto: RegisterDto) {
-    return this.authService.register(dto)
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.register(dto)
+    const isProd = process.env.NODE_ENV === 'production'
+    
+    res.cookie('access_token', result.accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    })
+    res.cookie('refresh_token', result.refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    })
+
+    return { user: result.user }
   }
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiOperation({ summary: 'Login with email and password' })
-  async login(@Body() dto: LoginDto) {
-    return this.authService.login(dto)
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(dto)
+    const isProd = process.env.NODE_ENV === 'production'
+
+    res.cookie('access_token', result.accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000,
+    })
+    res.cookie('refresh_token', result.refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    })
+
+    return { user: result.user }
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Refresh access token' })
-  async refresh(@Body('refreshToken') refreshToken: string) {
-    return this.authService.refreshToken(refreshToken)
+  async refresh(
+    @Req() req: Request,
+    @Body('refreshToken') bodyRefreshToken: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const token = bodyRefreshToken || req.cookies?.['refresh_token']
+    if (!token) {
+      throw new UnauthorizedException('No refresh token provided')
+    }
+    
+    const tokens = await this.authService.refreshToken(token)
+    const isProd = process.env.NODE_ENV === 'production'
+
+    res.cookie('access_token', tokens.accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60 * 1000,
+    })
+    res.cookie('refresh_token', tokens.refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      maxAge: 30 * 24 * 60 * 60 * 1000,
+    })
+
+    return { success: true }
   }
 
   @Get('me')
@@ -63,7 +126,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  async logout() {
+  async logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie('access_token')
+    res.clearCookie('refresh_token')
     return { message: 'Logged out successfully' }
   }
 
@@ -139,9 +204,23 @@ export class AuthController {
       })
 
       const authResult = await this.authService.handleGoogleAuth(userInfoResponse.data)
+      const isProd = process.env.NODE_ENV === 'production'
+
+      res.cookie('access_token', authResult.accessToken, {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: 'lax',
+        maxAge: 24 * 60 * 60 * 1000,
+      })
+      res.cookie('refresh_token', authResult.refreshToken, {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000,
+      })
+
       const params = new URLSearchParams({
-        accessToken: authResult.accessToken,
-        refreshToken: authResult.refreshToken,
+        googleLoginSuccess: 'true',
         ...(nextPath ? { next: nextPath } : {}),
       })
       return res.redirect(`${frontendUrl}/auth/login?${params.toString()}`)
