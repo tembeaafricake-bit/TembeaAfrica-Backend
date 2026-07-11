@@ -9,6 +9,7 @@ import { Destination, DestinationDocument } from '../destinations/schemas/destin
 import { Accommodation, AccommodationDocument } from '../accommodations/schemas/accommodation.schema'
 import { Guide, GuideDocument } from '../guides/schemas/guide.schema'
 import { generateSeedData } from '../../database/seed-data'
+import { Visit, VisitDocument } from './schemas/visit.schema'
 
 @Injectable()
 export class AdminService {
@@ -20,6 +21,7 @@ export class AdminService {
     @InjectModel(Destination.name) private destinationModel: Model<DestinationDocument>,
     @InjectModel(Accommodation.name) private accommodationModel: Model<AccommodationDocument>,
     @InjectModel(Guide.name) private guideModel: Model<GuideDocument>,
+    @InjectModel(Visit.name) private visitModel: Model<VisitDocument>,
   ) {}
 
   async getDashboardStats() {
@@ -67,6 +69,49 @@ export class AdminService {
       listings: { tours: totalTours, reviews: totalReviews, destinations: totalDestinations, guides: totalGuides, accommodations: totalAccommodations },
       bookingsByStatus: Object.fromEntries(bookingsByStatus.map((b: any) => [b._id, b.count])),
       revenueByMonth,
+    }
+  }
+
+  async getVisitorAnalytics() {
+    const [
+      totalVisits,
+      authenticatedVisits,
+      anonymousVisits,
+      countriesBreakdown,
+      pagesBreakdown,
+      recentVisits,
+    ] = await Promise.all([
+      this.visitModel.countDocuments(),
+      this.visitModel.countDocuments({ user: { $ne: null } }),
+      this.visitModel.countDocuments({ user: null }),
+      this.visitModel.aggregate([
+        { $group: { _id: '$country', count: { $sum: 1 } } },
+        { $project: { country: '$_id', count: 1, _id: 0 } },
+        { $sort: { count: -1 } },
+      ]),
+      this.visitModel.aggregate([
+        { $group: { _id: '$pageUrl', count: { $sum: 1 } } },
+        { $project: { pageUrl: '$_id', count: 1, _id: 0 } },
+        { $sort: { count: -1 } },
+        { $limit: 15 },
+      ]),
+      this.visitModel.find()
+        .populate('user', 'firstName lastName email avatar')
+        .sort({ createdAt: -1 })
+        .limit(50)
+        .lean(),
+    ])
+
+    const uniqueCountries = countriesBreakdown.length
+
+    return {
+      totalVisits,
+      authenticatedVisits,
+      anonymousVisits,
+      uniqueCountries,
+      countriesBreakdown,
+      pagesBreakdown,
+      recentVisits,
     }
   }
 

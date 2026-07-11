@@ -17,6 +17,10 @@ export class AdminController {
   @ApiOperation({ summary: 'Get dashboard statistics' })
   getStats() { return this.adminService.getDashboardStats() }
 
+  @Get('analytics')
+  @ApiOperation({ summary: 'Get visitor analytics' })
+  getAnalytics() { return this.adminService.getVisitorAnalytics() }
+
   @Post('seed')
   @ApiOperation({ summary: 'Seed database with initial test data (admin only, idempotent)' })
   seedDatabase() { return this.adminService.seedDatabase() }

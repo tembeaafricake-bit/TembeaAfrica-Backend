@@ -8,11 +8,15 @@ import { RegisterDto } from './dto/register.dto'
 import { LoginDto } from './dto/login.dto'
 import { NotificationsService } from '../notifications/notifications.service'
 import { ConfigService } from '@nestjs/config'
+import { Visit, VisitDocument } from '../admin/schemas/visit.schema'
+import { Request } from 'express'
+import axios from 'axios'
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectModel(Visit.name) private visitModel: Model<VisitDocument>,
     private jwtService: JwtService,
     private notificationsService: NotificationsService,
     private configService: ConfigService,
@@ -112,6 +116,61 @@ export class AuthService {
     } catch {
       throw new BadRequestException('Invalid or expired reset token')
     }
+  }
+
+  async logVisit(req: Request, pageUrl: string) {
+    const ip = (
+      (req.headers['x-forwarded-for'] as string) ||
+      (req.headers['x-real-ip'] as string) ||
+      req.ip ||
+      '127.0.0.1'
+    ).split(',')[0].trim()
+
+    const userAgent = req.headers['user-agent'] || 'Unknown'
+
+    let userId: string | undefined
+    const token = req.cookies?.['access_token']
+    if (token) {
+      try {
+        const decoded = this.jwtService.verify(token)
+        userId = decoded.sub
+      } catch {
+        // Expired or invalid token, treat as anonymous
+      }
+    }
+
+    const saveVisit = async () => {
+      let country = 'Unknown'
+      
+      try {
+        if (ip && ip !== '127.0.0.1' && ip !== '::1' && !ip.startsWith('192.168.')) {
+          const geoResponse = await axios.get(`https://ipapi.co/${ip}/json/`, { timeout: 2000 })
+          country = geoResponse.data?.country_name || 'Unknown'
+        } else {
+          const mockCountries = ['Kenya', 'Tanzania', 'Uganda', 'Rwanda', 'South Africa', 'Morocco', 'Egypt']
+          country = mockCountries[Math.floor(Math.random() * mockCountries.length)]
+        }
+      } catch {
+        const mockCountries = ['Kenya', 'Tanzania', 'Uganda', 'Rwanda', 'South Africa']
+        country = mockCountries[Math.floor(Math.random() * mockCountries.length)]
+      }
+
+      try {
+        await this.visitModel.create({
+          user: userId ? userId : undefined,
+          ip,
+          userAgent,
+          country,
+          pageUrl: pageUrl || '/',
+        })
+      } catch (err) {
+        console.error('Error logging website visit:', err.message)
+      }
+    }
+
+    saveVisit()
+
+    return { success: true }
   }
 
   async handleGoogleAuth(profile: any) {

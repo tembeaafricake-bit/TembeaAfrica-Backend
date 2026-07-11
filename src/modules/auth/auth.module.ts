@@ -11,6 +11,7 @@ import { LocalStrategy } from './strategies/local.strategy'
 import { User, UserSchema } from '../users/schemas/user.schema'
 import { UsersModule } from '../users/users.module'
 import { NotificationsModule } from '../notifications/notifications.module'
+import { Visit, VisitSchema } from '../admin/schemas/visit.schema'
 
 @Module({
   imports: [
@@ -23,7 +24,10 @@ import { NotificationsModule } from '../notifications/notifications.module'
         signOptions: { expiresIn: config.get<string>('JWT_EXPIRES_IN', '24h') as jwt.SignOptions['expiresIn'] },
       }),
     }),
-    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    MongooseModule.forFeature([
+      { name: User.name, schema: UserSchema },
+      { name: Visit.name, schema: VisitSchema },
+    ]),
     UsersModule,
     NotificationsModule,
   ],

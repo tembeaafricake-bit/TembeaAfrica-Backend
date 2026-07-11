@@ -9,6 +9,7 @@ import { Review, ReviewSchema } from '../reviews/schemas/review.schema'
 import { Destination, DestinationSchema } from '../destinations/schemas/destination.schema'
 import { Accommodation, AccommodationSchema } from '../accommodations/schemas/accommodation.schema'
 import { Guide, GuideSchema } from '../guides/schemas/guide.schema'
+import { Visit, VisitSchema } from './schemas/visit.schema'
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { Guide, GuideSchema } from '../guides/schemas/guide.schema'
       { name: Destination.name, schema: DestinationSchema },
       { name: Accommodation.name, schema: AccommodationSchema },
       { name: Guide.name, schema: GuideSchema },
+      { name: Visit.name, schema: VisitSchema },
     ]),
   ],
   controllers: [AdminController],

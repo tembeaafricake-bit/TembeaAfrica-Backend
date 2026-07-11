@@ -132,6 +132,16 @@ export class AuthController {
     return { message: 'Logged out successfully' }
   }
 
+  @Post('visit')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Log a website visit' })
+  async logVisit(
+    @Req() req: Request,
+    @Body('pageUrl') pageUrl: string,
+  ) {
+    return this.authService.logVisit(req, pageUrl)
+  }
+
   @Get('google')
   @ApiOperation({ summary: 'Redirect to Google OAuth login' })
   async googleAuth(@Req() req: Request, @Res() res: Response) {
