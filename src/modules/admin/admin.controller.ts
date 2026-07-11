@@ -53,12 +53,6 @@ export class AdminController {
     return this.adminService.createListing(type, body)
   }
 
-  @Patch(':type/:id/status')
-  @ApiOperation({ summary: 'Update listing status' })
-  updateListingStatus(@Param('type') type: string, @Param('id') id: string, @Body('status') status: string) {
-    return this.adminService.updateListingStatus(type, id, status)
-  }
-
   @Get('reviews')
   @ApiOperation({ summary: 'List all reviews' })
   getReviews(@Query() query: Record<string, unknown>) { return this.adminService.getReviews(query) }
@@ -70,4 +64,16 @@ export class AdminController {
   @Delete('reviews/:id')
   @ApiOperation({ summary: 'Delete a review' })
   deleteReview(@Param('id') id: string) { return this.adminService.deleteReview(id) }
+
+  @Delete(':type/:id')
+  @ApiOperation({ summary: 'Soft-delete a listing' })
+  deleteListing(@Param('type') type: string, @Param('id') id: string) {
+    return this.adminService.deleteListing(type, id)
+  }
+
+  @Patch(':type/:id/status')
+  @ApiOperation({ summary: 'Update listing status' })
+  updateListingStatus(@Param('type') type: string, @Param('id') id: string, @Body('status') status: string) {
+    return this.adminService.updateListingStatus(type, id, status)
+  }
 }

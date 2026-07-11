@@ -158,22 +158,62 @@ export class AdminService {
   async createListing(type: string, data: Record<string, unknown>) {
     switch (type) {
       case 'destinations': {
-        const slug = this.generateSlug(data.name as string)
-        return this.destinationModel.create({ ...data, slug })
+        const slug = (data.slug as string) || this.generateSlug(data.name as string)
+        return this.destinationModel.create({ ...data, slug, status: data.status || 'active' })
       }
       case 'tours': {
-        const slug = this.generateSlug(data.title as string)
-        return this.tourModel.create({ ...data, slug })
+        const slug = (data.slug as string) || this.generateSlug(data.title as string)
+        if (!data.destination) {
+          const dest = await this.destinationModel.findOne({ isDeleted: false }).lean()
+          if (dest) data.destination = dest._id
+        }
+        if (!data.operator) {
+          const op = await this.userModel.findOne({ role: { $in: ['operator', 'admin'] } }).lean()
+          if (op) data.operator = op._id
+        }
+        if (!data.images && data.heroImage) data.images = [data.heroImage as string]
+        if (!data.images) data.images = ['https://images.unsplash.com/photo-1547970810-dc1eac37d174?w=600']
+        return this.tourModel.create({ ...data, slug, status: data.status || 'active', instantBooking: data.instantBooking ?? true })
       }
-      case 'guides':
-        return this.guideModel.create(data)
+      case 'guides': {
+        if (!data.user) {
+          const guideUser = await this.userModel.findOne({ role: 'guide' }).lean()
+          if (guideUser) data.user = guideUser._id
+        }
+        if (!data.languages) data.languages = ['English', 'Swahili']
+        return this.guideModel.create({ ...data, status: data.status || 'active' })
+      }
       case 'accommodations': {
-        const slug = this.generateSlug(data.name as string)
-        return this.accommodationModel.create({ ...data, slug })
+        const slug = (data.slug as string) || this.generateSlug(data.name as string)
+        if (!data.destination) {
+          const dest = await this.destinationModel.findOne({ isDeleted: false }).lean()
+          if (dest) data.destination = dest._id
+        }
+        if (!data.owner) {
+          const owner = await this.userModel.findOne({ role: { $in: ['operator', 'admin'] } }).lean()
+          if (owner) data.owner = owner._id
+        }
+        if (!data.images && data.heroImage) data.images = [data.heroImage as string]
+        if (!data.images) data.images = ['https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=600']
+        return this.accommodationModel.create({ ...data, slug, status: data.status || 'active' })
       }
       default:
         throw new BadRequestException('Invalid listing type')
     }
+  }
+
+  async deleteListing(type: string, id: string) {
+    let model: Model<any>
+    switch (type) {
+      case 'destinations': model = this.destinationModel; break
+      case 'tours': model = this.tourModel; break
+      case 'guides': model = this.guideModel; break
+      case 'accommodations': model = this.accommodationModel; break
+      default: throw new BadRequestException('Invalid listing type')
+    }
+    const item = await model.findByIdAndUpdate(id, { isDeleted: true, status: 'inactive' }, { new: true })
+    if (!item) throw new NotFoundException('Listing not found')
+    return { message: 'Listing deleted successfully' }
   }
 
   async updateListingStatus(type: string, id: string, status: string) {
