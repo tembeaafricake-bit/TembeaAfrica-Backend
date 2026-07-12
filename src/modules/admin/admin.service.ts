@@ -192,16 +192,16 @@ export class AdminService {
         throw new BadRequestException('Invalid listing type')
     }
 
-    const query = model.find(filter).sort(sort).skip(skip).limit(limit as number)
+    const listQuery = model.find(filter).sort(sort).skip(skip).limit(limit as number)
     if (type === 'guides') {
-      query.populate('user', 'firstName lastName email')
+      listQuery.populate('user', 'firstName lastName email')
     }
     if (type === 'accommodations') {
-      query.populate('owner', 'firstName lastName email')
+      listQuery.populate('owner', 'firstName lastName email')
     }
 
     const [data, total] = await Promise.all([
-      query.lean(),
+      listQuery.lean(),
       model.countDocuments(filter),
     ])
 
