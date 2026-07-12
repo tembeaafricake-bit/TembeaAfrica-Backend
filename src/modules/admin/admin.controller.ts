@@ -1,5 +1,10 @@
-import { Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
+import { Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common'
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger'
+import { FileInterceptor } from '@nestjs/platform-express'
+import { memoryStorage } from 'multer'
+import { ConfigService } from '@nestjs/config'
+import { v2 as cloudinary, UploadApiResponse } from 'cloudinary'
+import { Readable } from 'stream'
 import { AdminService } from './admin.service'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
 import { RolesGuard } from '../../common/guards/roles.guard'
@@ -11,7 +16,33 @@ import { Roles } from '../../common/decorators/roles.decorator'
 @Roles('admin')
 @ApiBearerAuth()
 export class AdminController {
-  constructor(private adminService: AdminService) {}
+  constructor(private adminService: AdminService, private configService: ConfigService) {
+    cloudinary.config({
+      cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
+      api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
+      api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
+    })
+  }
+
+  @Post('upload-image')
+  @ApiOperation({ summary: 'Upload an admin image to Cloudinary' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('image', { storage: memoryStorage() }))
+  async uploadImage(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Image file is required')
+    }
+
+    const result = await new Promise<UploadApiResponse>((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream({ folder: 'tembea-africa/admin' }, (error, uploadResult) => {
+        if (error) return reject(error)
+        resolve(uploadResult)
+      })
+      Readable.from(file.buffer).pipe(uploadStream)
+    })
+
+    return { url: result.secure_url }
+  }
 
   @Get('stats')
   @ApiOperation({ summary: 'Get dashboard statistics' })

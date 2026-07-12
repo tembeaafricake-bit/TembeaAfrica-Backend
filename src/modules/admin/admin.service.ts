@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { Model } from 'mongoose'
+import { Model, Types, isValidObjectId } from 'mongoose'
 import { User, UserDocument } from '../users/schemas/user.schema'
 import { Tour, TourDocument } from '../tours/schemas/tour.schema'
 import { Booking, BookingDocument } from '../bookings/schemas/booking.schema'
@@ -252,6 +252,40 @@ export class AdminService {
     return { data, total, page, limit, totalPages: Math.ceil(total / (limit as number)) }
   }
 
+  private async resolveDestinationId(value: unknown) {
+    if (!value) return undefined
+    if (typeof value !== 'string') return undefined
+    if (isValidObjectId(value)) return new Types.ObjectId(value)
+
+    const destination = await this.destinationModel.findOne({
+      $or: [
+        { slug: value },
+        { name: new RegExp(`^${value}$`, 'i') },
+      ],
+    }).lean()
+
+    return destination?._id
+  }
+
+  private async resolveUserId(value: unknown, roles?: string | string[]) {
+    if (!value) return undefined
+    if (typeof value !== 'string') return undefined
+    if (isValidObjectId(value)) return new Types.ObjectId(value)
+
+    const emailMatch = String(value).trim().toLowerCase()
+    const query: Record<string, unknown> = {
+      $or: [
+        { email: emailMatch },
+        { firstName: new RegExp(`^${value}$`, 'i') },
+        { lastName: new RegExp(`^${value}$`, 'i') },
+      ],
+    }
+    if (roles) query.role = Array.isArray(roles) ? { $in: roles } : roles
+
+    const user = await this.userModel.findOne(query).lean()
+    return user?._id
+  }
+
   async createListing(type: string, data: Record<string, unknown>) {
     switch (type) {
       case 'destinations': {
@@ -260,20 +294,48 @@ export class AdminService {
       }
       case 'tours': {
         const slug = (data.slug as string) || this.generateSlug(data.title as string)
-        if (!data.destination) {
+        if (data.destination) {
+          const resolvedDestination = await this.resolveDestinationId(data.destination)
+          if (resolvedDestination) {
+            data.destination = resolvedDestination
+          } else {
+            const dest = await this.destinationModel.findOne({ isDeleted: false }).lean()
+            if (dest) data.destination = dest._id
+          }
+        } else {
           const dest = await this.destinationModel.findOne({ isDeleted: false }).lean()
           if (dest) data.destination = dest._id
         }
-        if (!data.operator) {
+
+        if (data.operator) {
+          const resolvedOperator = await this.resolveUserId(data.operator, ['operator', 'admin'])
+          if (resolvedOperator) {
+            data.operator = resolvedOperator
+          } else {
+            const op = await this.userModel.findOne({ role: { $in: ['operator', 'admin'] } }).lean()
+            if (op) data.operator = op._id
+          }
+        } else {
           const op = await this.userModel.findOne({ role: { $in: ['operator', 'admin'] } }).lean()
           if (op) data.operator = op._id
         }
+
+        if (!data.destination) {
+          throw new BadRequestException('A valid destination is required for tours')
+        }
+        if (!data.operator) {
+          throw new BadRequestException('A valid operator is required for tours')
+        }
+
         if (!data.images && data.heroImage) data.images = [data.heroImage as string]
         if (!data.images) data.images = ['https://images.unsplash.com/photo-1547970810-dc1eac37d174?w=600']
         return this.tourModel.create({ ...data, slug, status: data.status || 'active', instantBooking: data.instantBooking ?? true })
       }
       case 'guides': {
-        if (!data.user) {
+        if (data.user) {
+          const resolvedGuideUser = await this.resolveUserId(data.user, 'guide')
+          if (resolvedGuideUser) data.user = resolvedGuideUser
+        } else {
           const guideUser = await this.userModel.findOne({ role: 'guide' }).lean()
           if (guideUser) data.user = guideUser._id
         }
@@ -282,16 +344,40 @@ export class AdminService {
       }
       case 'accommodations': {
         const slug = (data.slug as string) || this.generateSlug(data.name as string)
-        if (!data.destination) {
+        if (data.destination) {
+          const resolvedDestination = await this.resolveDestinationId(data.destination)
+          if (resolvedDestination) {
+            data.destination = resolvedDestination
+          } else {
+            const dest = await this.destinationModel.findOne({ isDeleted: false }).lean()
+            if (dest) data.destination = dest._id
+          }
+        } else {
           const dest = await this.destinationModel.findOne({ isDeleted: false }).lean()
           if (dest) data.destination = dest._id
         }
-        if (!data.owner) {
+
+        if (data.owner) {
+          const resolvedOwner = await this.resolveUserId(data.owner, ['operator', 'admin'])
+          if (resolvedOwner) {
+            data.owner = resolvedOwner
+          } else {
+            const owner = await this.userModel.findOne({ role: { $in: ['operator', 'admin'] } }).lean()
+            if (owner) data.owner = owner._id
+          }
+        } else {
           const owner = await this.userModel.findOne({ role: { $in: ['operator', 'admin'] } }).lean()
           if (owner) data.owner = owner._id
         }
+
         if (!data.images && data.heroImage) data.images = [data.heroImage as string]
         if (!data.images) data.images = ['https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=600']
+        if (!data.destination) {
+          throw new BadRequestException('A valid destination is required for accommodations')
+        }
+        if (!data.owner) {
+          throw new BadRequestException('A valid owner is required for accommodations')
+        }
         return this.accommodationModel.create({ ...data, slug, status: data.status || 'active' })
       }
       default:
