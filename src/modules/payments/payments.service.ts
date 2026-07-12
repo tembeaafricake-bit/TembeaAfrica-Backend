@@ -26,7 +26,7 @@ export class PaymentsService {
         {
           email,
           amount: amountKobo,
-          currency: 'USD',
+          currency: booking.currency === 'KES' ? 'KES' : 'USD',
           reference: booking.bookingNumber,
           callback_url: this.configService.get('PAYSTACK_CALLBACK_URL')
             || `${this.configService.get('FRONTEND_URL')}/checkout/success`,
