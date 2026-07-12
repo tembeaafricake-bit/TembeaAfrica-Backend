@@ -40,6 +40,12 @@ export class BookingsService {
     })
 
     this.eventEmitter.emit('booking.created', { booking, userId })
+    await this.notificationsService.sendBookingPendingEmail(
+      (booking.user as any).email || (data.guestDetails as any)?.email,
+      (booking.user as any).firstName || (data.guestDetails as any)?.firstName || 'Guest',
+      booking.bookingNumber,
+      booking.totalAmount,
+    ).catch(() => null)
     return booking
   }
 

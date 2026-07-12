@@ -54,7 +54,18 @@ export class PaymentsService {
         { headers: { Authorization: `Bearer ${this.paystackSecret}` } },
       )
 
-      if (data.data.status !== 'success') throw new BadRequestException('Payment not successful')
+      if (data.data.status !== 'success') {
+        const pendingBooking = await this.bookingsService.findByNumber(reference).catch(() => null)
+        if (pendingBooking) {
+          await this.notificationsService.sendBookingFailureEmail(
+            (pendingBooking.user as any).email,
+            (pendingBooking.user as any).firstName,
+            pendingBooking.bookingNumber,
+            pendingBooking.totalAmount,
+          ).catch(() => null)
+        }
+        throw new BadRequestException('Payment not successful')
+      }
 
       const booking = await this.bookingsService.findByNumber(reference)
       await this.bookingsService.confirm(booking._id.toString(), reference)

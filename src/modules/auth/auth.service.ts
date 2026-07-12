@@ -126,7 +126,12 @@ export class AuthService {
       '127.0.0.1'
     ).split(',')[0].trim()
 
-    const userAgent = req.headers['user-agent'] || 'Unknown'
+    const userAgent = String(req.headers['user-agent'] || 'Unknown')
+    const botPattern = /(bot|crawler|spider|crawl|curl|wget|python|httpclient|scrapy|postman|headless|phantom|bingpreview)/i
+
+    if (botPattern.test(userAgent)) {
+      return { success: true }
+    }
 
     let userId: string | undefined
     const token = req.cookies?.['access_token']
@@ -139,31 +144,36 @@ export class AuthService {
       }
     }
 
+    const normalizedPageUrl = (() => {
+      const path = String(pageUrl || '/').split('?')[0].trim()
+      if (!path.startsWith('/')) return '/' + path.replace(/^\/+/, '')
+      return path === '' ? '/' : path.replace(/\/+$/, '') || '/'
+    })()
+
     const saveVisit = async () => {
       let country = 'Unknown'
-      
+      const isLocal = ip === '127.0.0.1' || ip === '::1' || /^10\.|^192\.168\.|^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip)
+
       try {
-        if (ip && ip !== '127.0.0.1' && ip !== '::1' && !ip.startsWith('192.168.')) {
+        if (!isLocal && ip) {
           const geoResponse = await axios.get(`https://ipapi.co/${ip}/json/`, { timeout: 2000 })
           country = geoResponse.data?.country_name || 'Unknown'
         } else {
-          const mockCountries = ['Kenya', 'Tanzania', 'Uganda', 'Rwanda', 'South Africa', 'Morocco', 'Egypt']
-          country = mockCountries[Math.floor(Math.random() * mockCountries.length)]
+          country = 'Local Network'
         }
       } catch {
-        const mockCountries = ['Kenya', 'Tanzania', 'Uganda', 'Rwanda', 'South Africa']
-        country = mockCountries[Math.floor(Math.random() * mockCountries.length)]
+        country = 'Unknown'
       }
 
       try {
         await this.visitModel.create({
-          user: userId ? userId : undefined,
+          user: userId,
           ip,
           userAgent,
           country,
-          pageUrl: pageUrl || '/',
+          pageUrl: normalizedPageUrl,
         })
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error logging website visit:', err.message)
       }
     }

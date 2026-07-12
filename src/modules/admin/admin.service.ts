@@ -73,27 +73,65 @@ export class AdminService {
   }
 
   async getVisitorAnalytics() {
+    const since24Hours = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
     const [
       totalVisits,
       authenticatedVisits,
       anonymousVisits,
+      last24HoursVisits,
+      last24HoursAuthenticated,
+      last24HoursAnonymous,
       countriesBreakdown,
       pagesBreakdown,
+      last24HoursPagesBreakdown,
       recentVisits,
     ] = await Promise.all([
       this.visitModel.countDocuments(),
       this.visitModel.countDocuments({ user: { $ne: null } }),
       this.visitModel.countDocuments({ user: null }),
+      this.visitModel.countDocuments({ createdAt: { $gte: since24Hours } }),
+      this.visitModel.countDocuments({ user: { $ne: null }, createdAt: { $gte: since24Hours } }),
+      this.visitModel.countDocuments({ user: null, createdAt: { $gte: since24Hours } }),
       this.visitModel.aggregate([
         { $group: { _id: '$country', count: { $sum: 1 } } },
         { $project: { country: '$_id', count: 1, _id: 0 } },
         { $sort: { count: -1 } },
       ]),
       this.visitModel.aggregate([
+        {
+          $project: {
+            pageUrl: {
+              $cond: [
+                { $gte: [{ $indexOfCP: ['$pageUrl', '?'] }, 0] },
+                { $substrCP: ['$pageUrl', 0, { $indexOfCP: ['$pageUrl', '?'] }] },
+                '$pageUrl',
+              ],
+            },
+          },
+        },
         { $group: { _id: '$pageUrl', count: { $sum: 1 } } },
         { $project: { pageUrl: '$_id', count: 1, _id: 0 } },
         { $sort: { count: -1 } },
         { $limit: 15 },
+      ]),
+      this.visitModel.aggregate([
+        { $match: { createdAt: { $gte: since24Hours } } },
+        {
+          $project: {
+            pageUrl: {
+              $cond: [
+                { $gte: [{ $indexOfCP: ['$pageUrl', '?'] }, 0] },
+                { $substrCP: ['$pageUrl', 0, { $indexOfCP: ['$pageUrl', '?'] }] },
+                '$pageUrl',
+              ],
+            },
+          },
+        },
+        { $group: { _id: '$pageUrl', count: { $sum: 1 } } },
+        { $project: { pageUrl: '$_id', count: 1, _id: 0 } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
       ]),
       this.visitModel.find()
         .populate('user', 'firstName lastName email avatar')
@@ -111,6 +149,12 @@ export class AdminService {
       uniqueCountries,
       countriesBreakdown,
       pagesBreakdown,
+      last24Hours: {
+        total: last24HoursVisits,
+        authenticated: last24HoursAuthenticated,
+        anonymous: last24HoursAnonymous,
+        topPages: last24HoursPagesBreakdown,
+      },
       recentVisits,
     }
   }

@@ -58,6 +58,32 @@ export class NotificationsService {
     `)
   }
 
+  async sendBookingPendingEmail(email: string, firstName: string, bookingNumber: string, amount: number) {
+    return this.sendEmail(email, `Booking Pending Payment — ${bookingNumber}`, `
+      <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#fff;">
+        <div style="background:linear-gradient(135deg,#1B4332,#2D6A4F);padding:40px;text-align:center;">
+          <div style="font-size:48px;">⏳</div>
+          <h1 style="color:#fff;margin:10px 0 0;">Booking Pending</h1>
+        </div>
+        <div style="padding:40px;">
+          <h2 style="color:#1B4332;">Hi ${firstName},</h2>
+          <p style="color:#666;line-height:1.6;">Your booking <strong>${bookingNumber}</strong> has been created, but payment has not yet completed.</p>
+          <p style="color:#666;line-height:1.6;">Please complete your payment to confirm your booking.</p>
+          <div style="background:#f0faf4;border:1px solid #bee3cc;border-radius:12px;padding:20px;margin:24px 0;">
+            <p style="margin:0 0 8px;color:#999;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Booking Reference</p>
+            <p style="margin:0;font-size:24px;font-weight:700;color:#1B4332;font-family:monospace;">${bookingNumber}</p>
+          </div>
+          <p style="color:#666;"><strong>Total due:</strong> KSh ${amount.toLocaleString()}</p>
+          <a href="${this.configService.get('FRONTEND_URL')}/dashboard" style="display:inline-block;background:#1B4332;color:#fff;padding:14px 28px;border-radius:50px;text-decoration:none;font-weight:600;margin-top:20px;">Complete payment →</a>
+        </div>
+        <div style="background:#f9f9f9;padding:20px;text-align:center;color:#999;font-size:12px;">
+          <p>Questions? Contact us at support@tembeaafrica.com</p>
+          <p>Tembea Africa Ltd · Nairobi, Kenya</p>
+        </div>
+      </div>
+    `)
+  }
+
   async sendBookingConfirmation(email: string, firstName: string, bookingNumber: string, amount: number) {
     return this.sendEmail(email, `Booking Confirmed — ${bookingNumber}`, `
       <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#fff;">
@@ -72,11 +98,37 @@ export class NotificationsService {
             <p style="margin:0 0 8px;color:#999;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Booking Reference</p>
             <p style="margin:0;font-size:24px;font-weight:700;color:#1B4332;font-family:monospace;">${bookingNumber}</p>
           </div>
-          <p style="color:#666;"><strong>Total paid:</strong> $${amount.toLocaleString()}</p>
+          <p style="color:#666;"><strong>Total paid:</strong> KSh ${amount.toLocaleString()}</p>
           <a href="${this.configService.get('FRONTEND_URL')}/dashboard" style="display:inline-block;background:#1B4332;color:#fff;padding:14px 28px;border-radius:50px;text-decoration:none;font-weight:600;margin-top:20px;">View my booking →</a>
         </div>
         <div style="background:#f9f9f9;padding:20px;text-align:center;color:#999;font-size:12px;">
           <p>Questions? Contact us at support@tembeaafrica.com</p>
+          <p>Tembea Africa Ltd · Nairobi, Kenya</p>
+        </div>
+      </div>
+    `)
+  }
+
+  async sendBookingFailureEmail(email: string, firstName: string, bookingNumber: string, amount: number) {
+    return this.sendEmail(email, `Payment Failed — ${bookingNumber}`, `
+      <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#fff;">
+        <div style="background:linear-gradient(135deg,#B02A37,#EF4444);padding:40px;text-align:center;">
+          <div style="font-size:48px;">⚠️</div>
+          <h1 style="color:#fff;margin:10px 0 0;">Payment Failed</h1>
+        </div>
+        <div style="padding:40px;">
+          <h2 style="color:#B02A37;">Hi ${firstName},</h2>
+          <p style="color:#666;line-height:1.6;">We were unable to process payment for your booking <strong>${bookingNumber}</strong>.</p>
+          <p style="color:#666;line-height:1.6;">Your booking is still pending payment. Please try again from your dashboard.</p>
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:20px;margin:24px 0;">
+            <p style="margin:0 0 8px;color:#9f1239;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Booking Reference</p>
+            <p style="margin:0;font-size:24px;font-weight:700;color:#B02A37;font-family:monospace;">${bookingNumber}</p>
+          </div>
+          <p style="color:#666;"><strong>Total due:</strong> KSh ${amount.toLocaleString()}</p>
+          <a href="${this.configService.get('FRONTEND_URL')}/dashboard" style="display:inline-block;background:#B02A37;color:#fff;padding:14px 28px;border-radius:50px;text-decoration:none;font-weight:600;margin-top:20px;">Retry payment →</a>
+        </div>
+        <div style="background:#f9f9f9;padding:20px;text-align:center;color:#999;font-size:12px;">
+          <p>Need help? Contact support@tembeaafrica.com</p>
           <p>Tembea Africa Ltd · Nairobi, Kenya</p>
         </div>
       </div>
