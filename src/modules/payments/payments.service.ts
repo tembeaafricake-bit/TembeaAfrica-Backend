@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { ConfigService } from '@nestjs/config'
 import axios from 'axios'
 import { BookingsService } from '../bookings/bookings.service'
+import { NotificationsService } from '../notifications/notifications.service'
 
 @Injectable()
 export class PaymentsService {
@@ -10,6 +11,7 @@ export class PaymentsService {
   constructor(
     private configService: ConfigService,
     private bookingsService: BookingsService,
+    private notificationsService: NotificationsService,
   ) {
     this.paystackSecret = configService.get('PAYSTACK_SECRET_KEY', '')
   }
