@@ -34,7 +34,9 @@ export class BookingsService {
       startDate: data.startDate,
       endDate: data.endDate,
       guests: data.guests || 1,
-      paymentMethod: data.paymentMethod,
+      paymentMethod: data.paymentMethod || 'paystack',
+      status: 'pending',
+      paymentStatus: 'unpaid',
     })
 
     this.eventEmitter.emit('booking.created', { booking, userId })

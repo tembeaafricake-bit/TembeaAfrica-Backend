@@ -27,24 +27,9 @@ export class PaymentsController {
     return this.paymentsService.verifyPaystackPayment(reference)
   }
 
-  @Post('paypal/initialize/:bookingId')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Initialize PayPal payment for a booking' })
-  initiatePaypal(@Param('bookingId') bookingId: string) {
-    return this.paymentsService.initiatePaypalPayment(bookingId)
-  }
-
-  @Post('paypal/capture')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Capture PayPal payment' })
-  capturePaypal(@Body() body: { orderId: string; bookingId: string }) {
-    return this.paymentsService.capturePaypalPayment(body.orderId, body.bookingId)
-  }
 
   @Post('webhook/:provider')
-  @ApiOperation({ summary: 'Payment webhook handler (Paystack / PayPal)' })
+  @ApiOperation({ summary: 'Payment webhook handler (Paystack)' })
   webhook(
     @Param('provider') provider: string,
     @Body() payload: Record<string, unknown>,

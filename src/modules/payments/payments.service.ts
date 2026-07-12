@@ -6,20 +6,12 @@ import { BookingsService } from '../bookings/bookings.service'
 @Injectable()
 export class PaymentsService {
   private paystackSecret: string
-  private paypalClientId: string
-  private paypalSecret: string
-  private paypalBaseUrl: string
 
   constructor(
     private configService: ConfigService,
     private bookingsService: BookingsService,
   ) {
     this.paystackSecret = configService.get('PAYSTACK_SECRET_KEY', '')
-    this.paypalClientId = configService.get('PAYPAL_CLIENT_ID', '')
-    this.paypalSecret = configService.get('PAYPAL_SECRET', '')
-    this.paypalBaseUrl = configService.get('PAYPAL_MODE', 'sandbox') === 'live'
-      ? 'https://api.paypal.com'
-      : 'https://api.sandbox.paypal.com'
   }
 
   async initiatePaystackPayment(bookingId: string, email: string) {
@@ -72,57 +64,6 @@ export class PaymentsService {
     }
   }
 
-  async initiatePaypalPayment(bookingId: string) {
-    const booking = await this.bookingsService.findOne(bookingId)
-    if (!booking) throw new NotFoundException('Booking not found')
-
-    const accessToken = await this.getPaypalAccessToken()
-
-    try {
-      const { data } = await axios.post(
-        `${this.paypalBaseUrl}/v2/checkout/orders`,
-        {
-          intent: 'CAPTURE',
-          purchase_units: [{
-            reference_id: booking.bookingNumber,
-            amount: { currency_code: 'USD', value: booking.totalAmount.toFixed(2) },
-            description: `Tembea Africa Booking ${booking.bookingNumber}`,
-          }],
-          application_context: {
-            return_url: `${this.configService.get('FRONTEND_URL')}/checkout/success?provider=paypal&bookingId=${bookingId}`,
-            cancel_url: `${this.configService.get('FRONTEND_URL')}/checkout?cancelled=true`,
-          },
-        },
-        { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } },
-      )
-
-      const approvalLink = data.links.find((l: any) => l.rel === 'approve')
-      return { paymentUrl: approvalLink?.href, orderId: data.id, provider: 'paypal' }
-    } catch (error: any) {
-      throw new BadRequestException('Failed to initialize PayPal payment')
-    }
-  }
-
-  async capturePaypalPayment(orderId: string, bookingId: string) {
-    const accessToken = await this.getPaypalAccessToken()
-
-    try {
-      const { data } = await axios.post(
-        `${this.paypalBaseUrl}/v2/checkout/orders/${orderId}/capture`,
-        {},
-        { headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' } },
-      )
-
-      if (data.status === 'COMPLETED') {
-        await this.bookingsService.confirm(bookingId, orderId)
-        return { success: true, message: 'PayPal payment captured and booking confirmed' }
-      }
-      throw new BadRequestException('PayPal payment not completed')
-    } catch (error: any) {
-      throw new BadRequestException('Failed to capture PayPal payment')
-    }
-  }
-
   async handleWebhook(provider: string, payload: Record<string, unknown>, signature: string, rawBody?: string) {
     if (provider === 'paystack') {
       // Verify Paystack webhook signature using the raw request body when available.
@@ -141,15 +82,5 @@ export class PaymentsService {
       }
     }
     return { received: true }
-  }
-
-  private async getPaypalAccessToken(): Promise<string> {
-    const credentials = Buffer.from(`${this.paypalClientId}:${this.paypalSecret}`).toString('base64')
-    const { data } = await axios.post(
-      `${this.paypalBaseUrl}/v1/oauth2/token`,
-      'grant_type=client_credentials',
-      { headers: { Authorization: `Basic ${credentials}`, 'Content-Type': 'application/x-www-form-urlencoded' } },
-    )
-    return data.access_token
   }
 }
