@@ -32,7 +32,7 @@ async function seed() {
   // ─── USERS ─────────────────────────────────────────────────────────────────
   const hashedPassword = await bcrypt.hash('Hamp9map....#', 12)
   const users = await db.collection('users').insertMany([
-    { firstName: 'Admin', lastName: 'Tembea', email: 'tembeaafrica@gmail.com', password: hashedPassword, role: 'admin', isVerified: true, createdAt: new Date() },
+    { firstName: 'Admin', lastName: 'Tembea', email: 'tembeaafricake@gmail.com', password: hashedPassword, role: 'admin', isVerified: true, createdAt: new Date() },
     { firstName: 'Joseph', lastName: 'Kamau', email: 'joseph@tembeaafrica.com', password: hashedPassword, role: 'guide', isVerified: true, createdAt: new Date() },
     { firstName: 'Amina', lastName: 'Mohamed', email: 'amina@tembeaafrica.com', password: hashedPassword, role: 'guide', isVerified: true, createdAt: new Date() },
     { firstName: 'John', lastName: 'Traveller', email: 'john@example.com', password: hashedPassword, role: 'tourist', isVerified: true, createdAt: new Date() },
