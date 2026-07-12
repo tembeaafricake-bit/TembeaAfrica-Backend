@@ -32,7 +32,7 @@ async function seed() {
   // ─── USERS ─────────────────────────────────────────────────────────────────
   const hashedPassword = await bcrypt.hash('Hamp9map....#', 12)
   const users = await db.collection('users').insertMany([
-    { firstName: 'Admin', lastName: 'Tembea', email: 'tembeaafricake@gmail.com', password: hashedPassword, role: 'admin', isVerified: true, createdAt: new Date() },
+    { firstName: 'Admin', lastName: 'Tembea', email: 'tembeaafrica@gmail.com', password: hashedPassword, role: 'admin', isVerified: true, createdAt: new Date() },
     { firstName: 'Joseph', lastName: 'Kamau', email: 'joseph@tembeaafrica.com', password: hashedPassword, role: 'guide', isVerified: true, createdAt: new Date() },
     { firstName: 'Amina', lastName: 'Mohamed', email: 'amina@tembeaafrica.com', password: hashedPassword, role: 'guide', isVerified: true, createdAt: new Date() },
     { firstName: 'John', lastName: 'Traveller', email: 'john@example.com', password: hashedPassword, role: 'tourist', isVerified: true, createdAt: new Date() },
@@ -160,10 +160,10 @@ async function seed() {
 
   console.log('\n🎉 Database seeded successfully!')
   console.log('\n📋 Login credentials:')
-  console.log('   Admin:    admin@tembeaafrica.com / Admin@123')
-  console.log('   Guide:    joseph@tembeaafrica.com / Admin@123')
-  console.log('   Tourist:  john@example.com / Admin@123')
-  console.log('   Operator: operator@marasafaris.com / Admin@123')
+  console.log('   Admin:    tembeaafrica@gmail.com / Hamp9map....#')
+  console.log('   Guide:    joseph@tembeaafrica.com / Hamp9map....#')
+  console.log('   Tourist:  john@example.com / Hamp9map....#')
+  console.log('   Operator: operator@marasafaris.com / Hamp9map....#')
 
   await mongoose.disconnect()
   process.exit(0)
