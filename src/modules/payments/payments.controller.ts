@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Body, Param, Query, UseGuards, Headers, RawBodyRequest, Req } from '@nestjs/common'
+import { Request } from 'express'
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger'
 import { PaymentsService } from './payments.service'
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard'
@@ -48,7 +49,8 @@ export class PaymentsController {
     @Param('provider') provider: string,
     @Body() payload: Record<string, unknown>,
     @Headers('x-paystack-signature') signature: string,
+    @Req() req: RawBodyRequest<Request>,
   ) {
-    return this.paymentsService.handleWebhook(provider, payload, signature)
+    return this.paymentsService.handleWebhook(provider, payload, signature, (req as any).rawBody)
   }
 }

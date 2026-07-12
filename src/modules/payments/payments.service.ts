@@ -36,8 +36,10 @@ export class PaymentsService {
           amount: amountKobo,
           currency: 'USD',
           reference: booking.bookingNumber,
-          callback_url: `${this.configService.get('FRONTEND_URL')}/checkout/success`,
+          callback_url: this.configService.get('PAYSTACK_CALLBACK_URL')
+            || `${this.configService.get('FRONTEND_URL')}/checkout/success`,
           metadata: {
+            origin_site: 'tembea_africa',
             bookingId: bookingId,
             bookingNumber: booking.bookingNumber,
             custom_fields: [
@@ -121,11 +123,12 @@ export class PaymentsService {
     }
   }
 
-  async handleWebhook(provider: string, payload: Record<string, unknown>, signature: string) {
+  async handleWebhook(provider: string, payload: Record<string, unknown>, signature: string, rawBody?: string) {
     if (provider === 'paystack') {
-      // Verify Paystack webhook signature
+      // Verify Paystack webhook signature using the raw request body when available.
       const crypto = await import('crypto')
-      const hash = crypto.createHmac('sha512', this.paystackSecret).update(JSON.stringify(payload)).digest('hex')
+      const body = rawBody && rawBody.length ? rawBody : JSON.stringify(payload)
+      const hash = crypto.createHmac('sha512', this.paystackSecret).update(body).digest('hex')
       if (hash !== signature) throw new BadRequestException('Invalid webhook signature')
 
       const event = payload.event as string

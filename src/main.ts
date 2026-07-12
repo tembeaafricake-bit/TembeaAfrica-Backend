@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core'
 import { ValidationPipe } from '@nestjs/common'
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger'
 import { AppModule } from './app.module'
+import express from 'express'
 import helmet from 'helmet'
 import compression from 'compression'
 import morgan from 'morgan'
@@ -9,6 +10,12 @@ import cookieParser from 'cookie-parser'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: false })
+
+  app.use(express.json({
+    verify: (req, _res, buf) => {
+      ;(req as any).rawBody = buf.toString()
+    },
+  }))
 
   // Security
   app.use(helmet())

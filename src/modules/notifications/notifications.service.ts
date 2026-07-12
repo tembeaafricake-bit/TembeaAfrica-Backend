@@ -112,4 +112,55 @@ export class NotificationsService {
       </div>
     `)
   }
+
+  async sendMessageReceipt(email: string, firstName: string, messageContent: string) {
+    const previewContent = messageContent.length > 100 ? `${messageContent.substring(0, 100)}...` : messageContent;
+    return this.sendEmail(email, 'We received your message! 🐾', `
+      <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:16px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#1B4332,#2D6A4F);padding:30px;text-align:center;">
+          <h1 style="color:#fff;font-size:24px;margin:0;">Message Received</h1>
+          <p style="color:rgba(255,255,255,0.8);margin:5px 0 0;">Tembea Africa Support</p>
+        </div>
+        <div style="padding:30px;">
+          <h2 style="color:#1B4332;margin-top:0;">Hello ${firstName},</h2>
+          <p style="color:#666;line-height:1.6;">We have successfully received your message. One of our support representatives or local guides will get back to you shortly.</p>
+          
+          <div style="background:#f9f9f9;border-left:4px solid #2D6A4F;padding:15px;margin:20px 0;font-style:italic;color:#555;border-radius:0 8px 8px 0;">
+            "${previewContent}"
+          </div>
+
+          <p style="color:#666;line-height:1.6;">You can view and reply to your conversation directly in your dashboard:</p>
+          <a href="${this.configService.get('FRONTEND_URL')}/dashboard" style="display:inline-block;background:#1B4332;color:#fff;padding:12px 24px;border-radius:50px;text-decoration:none;font-weight:600;margin-top:10px;">Go to Dashboard →</a>
+        </div>
+        <div style="background:#f4f4f4;padding:20px;text-align:center;color:#999;font-size:12px;">
+          <p>Tembea Africa Ltd · Nairobi, Kenya</p>
+        </div>
+      </div>
+    `)
+  }
+
+  async sendMessageNotification(email: string, firstName: string, senderName: string, messageContent: string) {
+    const previewContent = messageContent.length > 100 ? `${messageContent.substring(0, 100)}...` : messageContent;
+    return this.sendEmail(email, `New message from ${senderName} ✉️`, `
+      <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#fff;border:1px solid #eee;border-radius:16px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#1B4332,#2D6A4F);padding:30px;text-align:center;">
+          <h1 style="color:#fff;font-size:24px;margin:0;">New Message</h1>
+        </div>
+        <div style="padding:30px;">
+          <h2 style="color:#1B4332;margin-top:0;">Hi ${firstName},</h2>
+          <p style="color:#666;line-height:1.6;">You have received a new message from <strong>${senderName}</strong> on Tembea Africa:</p>
+          
+          <div style="background:#f9f9f9;border-left:4px solid #2D6A4F;padding:15px;margin:20px 0;color:#555;border-radius:0 8px 8px 0;">
+            "${previewContent}"
+          </div>
+
+          <p style="color:#666;line-height:1.6;">Click the button below to view the message and reply:</p>
+          <a href="${this.configService.get('FRONTEND_URL')}/dashboard" style="display:inline-block;background:#1B4332;color:#fff;padding:12px 24px;border-radius:50px;text-decoration:none;font-weight:600;margin-top:10px;">Reply to message →</a>
+        </div>
+        <div style="background:#f4f4f4;padding:20px;text-align:center;color:#999;font-size:12px;">
+          <p>Tembea Africa Ltd · Nairobi, Kenya</p>
+        </div>
+      </div>
+    `)
+  }
 }
