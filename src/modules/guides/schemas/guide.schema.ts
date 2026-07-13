@@ -16,6 +16,7 @@ export class Guide {
   @Prop({ default: 0 }) rating: number
   @Prop({ default: 0 }) reviewCount: number
   @Prop({ type: [String], default: [] }) portfolio: string[]
+  @Prop({ default: '' }) avatar: string
   @Prop({ type: [String], default: [] }) availability: string[]
   @Prop({ enum: ['safari', 'mountain', 'cultural', 'city', 'photography'], required: true }) category: string
   @Prop({ default: false }) verified: boolean
