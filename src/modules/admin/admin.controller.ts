@@ -118,6 +118,12 @@ export class AdminController {
     return this.adminService.createListing(type, body)
   }
 
+  @Patch('listings/:id')
+  @ApiOperation({ summary: 'Update an existing listing (destination, tour, guide, or accommodation)' })
+  updateListing(@Query('type') type: string, @Param('id') id: string, @Body() body: Record<string, unknown>) {
+    return this.adminService.updateListing(type, id, body)
+  }
+
   @Get('reviews')
   @ApiOperation({ summary: 'List all reviews' })
   getReviews(@Query() query: Record<string, unknown>) { return this.adminService.getReviews(query) }

@@ -417,6 +417,68 @@ export class AdminService {
     return { message: 'Listing deleted successfully' }
   }
 
+  async updateListing(type: string, id: string, data: Record<string, unknown>) {
+    let model: Model<any>
+    switch (type) {
+      case 'destinations': {
+        model = this.destinationModel
+        break
+      }
+      case 'tours': {
+        model = this.tourModel
+        if (data.destination) {
+          const resolvedDestination = await this.resolveDestinationId(data.destination)
+          if (resolvedDestination) {
+            data.destination = resolvedDestination
+          } else {
+            data.destination = await this.ensureFallbackDestination(data)
+          }
+        }
+        if (data.operator) {
+          const resolvedOperator = await this.resolveUserId(data.operator, ['operator', 'admin'])
+          if (resolvedOperator) data.operator = resolvedOperator
+        }
+        if (data.heroImage) {
+          data.images = [data.heroImage as string]
+        }
+        break
+      }
+      case 'guides': {
+        model = this.guideModel
+        if (data.user) {
+          const resolvedGuideUser = await this.resolveUserId(data.user, 'guide')
+          if (resolvedGuideUser) data.user = resolvedGuideUser
+        }
+        break
+      }
+      case 'accommodations': {
+        model = this.accommodationModel
+        if (data.destination) {
+          const resolvedDestination = await this.resolveDestinationId(data.destination)
+          if (resolvedDestination) {
+            data.destination = resolvedDestination
+          } else {
+            data.destination = await this.ensureFallbackDestination(data)
+          }
+        }
+        if (data.owner) {
+          const resolvedOwner = await this.resolveUserId(data.owner, ['operator', 'admin'])
+          if (resolvedOwner) data.owner = resolvedOwner
+        }
+        if (data.heroImage) {
+          data.images = [data.heroImage as string]
+        }
+        break
+      }
+      default:
+        throw new BadRequestException('Invalid listing type')
+    }
+
+    const item = await model.findByIdAndUpdate(id, { $set: data }, { new: true })
+    if (!item) throw new NotFoundException('Listing not found')
+    return item
+  }
+
   async updateListingStatus(type: string, id: string, status: string) {
     let model: Model<any>
     switch (type) {
