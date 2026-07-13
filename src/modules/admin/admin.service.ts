@@ -296,7 +296,7 @@ export class AdminService {
       name: fallbackName,
       slug: fallbackSlug,
       description: 'Auto-created destination for admin listings',
-      country: 'Kenya',
+      country: 'kenya',
       heroImage: 'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=1200',
       status: 'active',
       featured: false,
