@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards, UploadedFile, UseInterceptors, BadRequestException } from '@nestjs/common'
+import { Controller, Get, Post, Patch, Delete, Param, Query, Body, UseGuards, UploadedFiles, UseInterceptors, BadRequestException } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger'
-import { FileInterceptor } from '@nestjs/platform-express'
+import { FileFieldsInterceptor } from '@nestjs/platform-express'
 import { memoryStorage } from 'multer'
 import { ConfigService } from '@nestjs/config'
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary'
@@ -27,9 +27,21 @@ export class AdminController {
   @Post('upload-image')
   @ApiOperation({ summary: 'Upload an admin image to Cloudinary' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(FileInterceptor('image', { storage: memoryStorage() }))
-  async uploadImage(@UploadedFile() file: Express.Multer.File) {
-    if (!file) {
+  @UseInterceptors(FileFieldsInterceptor([
+    { name: 'image', maxCount: 1 },
+    { name: 'file', maxCount: 1 },
+    { name: 'heroImage', maxCount: 1 },
+    { name: 'heroImageFile', maxCount: 1 },
+  ], { storage: memoryStorage() }))
+  async uploadImage(@UploadedFiles() files: {
+    image?: Express.Multer.File[]
+    file?: Express.Multer.File[]
+    heroImage?: Express.Multer.File[]
+    heroImageFile?: Express.Multer.File[]
+  }) {
+    const uploadFile = files?.image?.[0] || files?.file?.[0] || files?.heroImage?.[0] || files?.heroImageFile?.[0]
+
+    if (!uploadFile?.buffer?.length) {
       throw new BadRequestException('Image file is required')
     }
 
@@ -38,7 +50,7 @@ export class AdminController {
         if (error) return reject(error)
         resolve(uploadResult)
       })
-      Readable.from(file.buffer).pipe(uploadStream)
+      Readable.from(uploadFile.buffer).pipe(uploadStream)
     })
 
     return { url: result.secure_url }
