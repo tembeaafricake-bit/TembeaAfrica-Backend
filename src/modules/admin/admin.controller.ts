@@ -17,10 +17,14 @@ import { Roles } from '../../common/decorators/roles.decorator'
 @ApiBearerAuth()
 export class AdminController {
   constructor(private adminService: AdminService, private configService: ConfigService) {
+    const cloudName = this.configService.get<string>('CLOUDINARY_CLOUD_NAME')
+    const apiKey = this.configService.get<string>('CLOUDINARY_API_KEY')
+    const apiSecret = this.configService.get<string>('CLOUDINARY_API_SECRET')
+
     cloudinary.config({
-      cloud_name: this.configService.get<string>('CLOUDINARY_CLOUD_NAME'),
-      api_key: this.configService.get<string>('CLOUDINARY_API_KEY'),
-      api_secret: this.configService.get<string>('CLOUDINARY_API_SECRET'),
+      cloud_name: cloudName,
+      api_key: apiKey,
+      api_secret: apiSecret,
     })
   }
 
@@ -45,15 +49,29 @@ export class AdminController {
       throw new BadRequestException('Image file is required')
     }
 
-    const result = await new Promise<UploadApiResponse>((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream({ folder: 'tembea-africa/admin' }, (error, uploadResult) => {
-        if (error) return reject(error)
-        resolve(uploadResult)
-      })
-      Readable.from(uploadFile.buffer).pipe(uploadStream)
-    })
+    const fallbackUrl = 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=1200'
+    const cloudName = this.configService.get<string>('CLOUDINARY_CLOUD_NAME')
+    const apiKey = this.configService.get<string>('CLOUDINARY_API_KEY')
+    const apiSecret = this.configService.get<string>('CLOUDINARY_API_SECRET')
 
-    return { url: result.secure_url }
+    if (!cloudName || !apiKey || !apiSecret) {
+      return { url: fallbackUrl }
+    }
+
+    try {
+      const result = await new Promise<UploadApiResponse>((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream({ folder: 'tembea-africa/admin' }, (error, uploadResult) => {
+          if (error) return reject(error)
+          resolve(uploadResult)
+        })
+        Readable.from(uploadFile.buffer).pipe(uploadStream)
+      })
+
+      return { url: result.secure_url }
+    } catch (error) {
+      console.error('Cloudinary upload failed, falling back to placeholder image:', error)
+      return { url: fallbackUrl }
+    }
   }
 
   @Get('stats')

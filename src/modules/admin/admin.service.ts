@@ -297,6 +297,7 @@ export class AdminService {
       slug: fallbackSlug,
       description: 'Auto-created destination for admin listings',
       country: 'Kenya',
+      heroImage: 'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=1200',
       status: 'active',
       featured: false,
       isDeleted: false,
@@ -346,6 +347,7 @@ export class AdminService {
 
         if (!data.images && data.heroImage) data.images = [data.heroImage as string]
         if (!data.images) data.images = ['https://images.unsplash.com/photo-1547970810-dc1eac37d174?w=600']
+        if (!data.heroImage) data.heroImage = 'https://images.unsplash.com/photo-1547970810-dc1eac37d174?w=600'
         return this.tourModel.create({ ...data, slug, status: data.status || 'active', instantBooking: data.instantBooking ?? true })
       }
       case 'guides': {
@@ -387,6 +389,7 @@ export class AdminService {
 
         if (!data.images && data.heroImage) data.images = [data.heroImage as string]
         if (!data.images) data.images = ['https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=600']
+        if (!data.heroImage) data.heroImage = 'https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=600'
         if (!data.destination) {
           throw new BadRequestException('A valid destination is required for accommodations')
         }
