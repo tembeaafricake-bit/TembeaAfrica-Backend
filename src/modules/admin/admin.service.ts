@@ -286,6 +286,25 @@ export class AdminService {
     return user?._id
   }
 
+  private async ensureFallbackDestination(data: Record<string, unknown>) {
+    const existing = await this.destinationModel.findOne({ isDeleted: false }).lean()
+    if (existing) return existing._id as Types.ObjectId
+
+    const fallbackName = (data.name as string)?.trim() || 'Default Destination'
+    const fallbackSlug = this.generateSlug(fallbackName)
+    const created = await this.destinationModel.create({
+      name: fallbackName,
+      slug: fallbackSlug,
+      description: 'Auto-created destination for admin listings',
+      country: 'Kenya',
+      status: 'active',
+      featured: false,
+      isDeleted: false,
+    })
+
+    return created._id as Types.ObjectId
+  }
+
   async createListing(type: string, data: Record<string, unknown>) {
     switch (type) {
       case 'destinations': {
@@ -299,12 +318,10 @@ export class AdminService {
           if (resolvedDestination) {
             data.destination = resolvedDestination
           } else {
-            const dest = await this.destinationModel.findOne({ isDeleted: false }).lean()
-            if (dest) data.destination = dest._id
+            data.destination = await this.ensureFallbackDestination(data)
           }
         } else {
-          const dest = await this.destinationModel.findOne({ isDeleted: false }).lean()
-          if (dest) data.destination = dest._id
+          data.destination = await this.ensureFallbackDestination(data)
         }
 
         if (data.operator) {
@@ -349,12 +366,10 @@ export class AdminService {
           if (resolvedDestination) {
             data.destination = resolvedDestination
           } else {
-            const dest = await this.destinationModel.findOne({ isDeleted: false }).lean()
-            if (dest) data.destination = dest._id
+            data.destination = await this.ensureFallbackDestination(data)
           }
         } else {
-          const dest = await this.destinationModel.findOne({ isDeleted: false }).lean()
-          if (dest) data.destination = dest._id
+          data.destination = await this.ensureFallbackDestination(data)
         }
 
         if (data.owner) {
