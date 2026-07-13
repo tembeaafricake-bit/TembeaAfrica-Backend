@@ -8,10 +8,11 @@ export class TransportService {
   constructor(@InjectModel(Transport.name) private transportModel: Model<TransportDocument>) {}
 
   async findAll(query: Record<string, unknown>) {
-    const { page = 1, limit = 20, q, status } = query
+    const { page = 1, limit = 20, q, status, type } = query
     const skip = ((page as number) - 1) * (limit as number)
     const filter: Record<string, unknown> = { isDeleted: false }
     if (status) filter.status = status
+    if (type) filter.type = type
     if (q) {
       filter.$or = [
         { name: new RegExp(q as string, 'i') },
