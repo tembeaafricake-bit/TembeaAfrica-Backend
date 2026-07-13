@@ -313,6 +313,26 @@ export class AdminService {
     return created._id as Types.ObjectId
   }
 
+  private buildSlug(value: string) {
+    return (value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+  }
+
+  private async ensureUniqueSlug(model: Model<any>, value: string, fallback = 'listing') {
+    const baseSlug = this.buildSlug(value || fallback) || fallback
+    const escaped = baseSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const existing = await model.findOne({ slug: { $regex: `^${escaped}(?:-\\d+)?$`, $options: 'i' } }).lean()
+    if (!existing) return baseSlug
+
+    let counter = 2
+    let candidate = `${baseSlug}-${counter}`
+    while (await model.findOne({ slug: candidate }).lean()) {
+      counter += 1
+      candidate = `${baseSlug}-${counter}`
+    }
+
+    return candidate
+  }
+
   async createListing(type: string, data: Record<string, unknown>) {
     switch (type) {
       case 'destinations': {
@@ -369,7 +389,16 @@ export class AdminService {
         return this.guideModel.create({ ...data, status: data.status || 'active' })
       }
       case 'accommodations': {
-        const slug = (data.slug as string) || this.generateSlug(data.name as string)
+        const trimmedName = typeof data.name === 'string' ? data.name.trim() : ''
+        if (trimmedName) data.name = trimmedName
+        if (!trimmedName) {
+          throw new BadRequestException('A valid name is required for accommodations')
+        }
+
+        const slug = (typeof data.slug === 'string' && data.slug.trim())
+          ? data.slug.trim()
+          : await this.ensureUniqueSlug(this.accommodationModel, trimmedName, 'accommodation')
+
         if (data.destination) {
           const resolvedDestination = await this.resolveDestinationId(data.destination)
           if (resolvedDestination) {
@@ -406,9 +435,11 @@ export class AdminService {
         return this.accommodationModel.create({ ...data, slug, status: data.status || 'active' })
       }
       case 'transport': {
-        if (!data.name || !String(data.name).trim()) {
+        const trimmedName = typeof data.name === 'string' ? data.name.trim() : ''
+        if (!trimmedName) {
           throw new BadRequestException('A valid name is required for transport listings')
         }
+        data.name = trimmedName
         if (!data.type || !['bus', 'car', 'flight', 'ferry'].includes(String(data.type))) {
           throw new BadRequestException('Transport type must be bus, car, flight, or ferry')
         }
@@ -423,7 +454,10 @@ export class AdminService {
         }
         if (!data.currency) data.currency = 'USD'
         if (!data.image) data.image = 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800'
-        return this.transportModel.create({ ...data, status: data.status || 'active', isDeleted: false })
+        const slug = (typeof data.slug === 'string' && data.slug.trim())
+          ? data.slug.trim()
+          : await this.ensureUniqueSlug(this.transportModel, trimmedName, 'transport')
+        return this.transportModel.create({ ...data, slug, status: data.status || 'active', isDeleted: false })
       }
       default:
         throw new BadRequestException('Invalid listing type')
@@ -481,6 +515,12 @@ export class AdminService {
       }
       case 'accommodations': {
         model = this.accommodationModel
+        if (typeof data.name === 'string' && data.name.trim()) {
+          data.name = data.name.trim()
+        }
+        if (typeof data.name === 'string' && data.name.trim() && !data.slug) {
+          data.slug = await this.ensureUniqueSlug(this.accommodationModel, String(data.name).trim(), 'accommodation')
+        }
         if (data.destination) {
           const resolvedDestination = await this.resolveDestinationId(data.destination)
           if (resolvedDestination) {
@@ -500,6 +540,12 @@ export class AdminService {
       }
       case 'transport': {
         model = this.transportModel
+        if (typeof data.name === 'string' && data.name.trim()) {
+          data.name = data.name.trim()
+        }
+        if (typeof data.name === 'string' && data.name.trim() && !data.slug) {
+          data.slug = await this.ensureUniqueSlug(this.transportModel, String(data.name).trim(), 'transport')
+        }
         if (data.type && !['bus', 'car', 'flight', 'ferry'].includes(String(data.type))) {
           throw new BadRequestException('Transport type must be bus, car, flight, or ferry')
         }

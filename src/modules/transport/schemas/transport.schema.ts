@@ -8,6 +8,9 @@ export class Transport {
   @Prop({ required: true })
   name: string
 
+  @Prop({ sparse: true, unique: true })
+  slug?: string
+
   @Prop({ enum: ['bus', 'car', 'flight', 'ferry'], required: true })
   type: string
 

@@ -44,7 +44,10 @@ export class AccommodationsService {
   }
 
   async findBySlug(slug: string) {
-    const stay = await this.accommodationModel.findOne({ slug, isDeleted: false })
+    const stay = await this.accommodationModel.findOne({
+      $or: [{ slug }, { _id: slug }, { name: slug }],
+      isDeleted: false,
+    })
       .populate('destination', 'name slug country heroImage')
       .populate('owner', 'firstName lastName avatar email')
       .lean()

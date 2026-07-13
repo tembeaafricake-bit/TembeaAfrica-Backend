@@ -30,8 +30,11 @@ export class TransportService {
   }
 
   async findOne(id: string) {
-    const transport = await this.transportModel.findById(id).lean()
-    if (!transport || transport.isDeleted) {
+    const transport = await this.transportModel.findOne({
+      $or: [{ _id: id }, { slug: id }, { name: id }],
+      isDeleted: false,
+    }).lean()
+    if (!transport) {
       throw new NotFoundException('Transport listing not found')
     }
     return transport
