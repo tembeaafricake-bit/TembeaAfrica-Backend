@@ -8,6 +8,7 @@ import { Review, ReviewDocument } from '../reviews/schemas/review.schema'
 import { Destination, DestinationDocument } from '../destinations/schemas/destination.schema'
 import { Accommodation, AccommodationDocument } from '../accommodations/schemas/accommodation.schema'
 import { Guide, GuideDocument } from '../guides/schemas/guide.schema'
+import { Transport, TransportDocument } from '../transport/schemas/transport.schema'
 import { generateSeedData } from '../../database/seed-data'
 import { Visit, VisitDocument } from './schemas/visit.schema'
 
@@ -21,6 +22,7 @@ export class AdminService {
     @InjectModel(Destination.name) private destinationModel: Model<DestinationDocument>,
     @InjectModel(Accommodation.name) private accommodationModel: Model<AccommodationDocument>,
     @InjectModel(Guide.name) private guideModel: Model<GuideDocument>,
+    @InjectModel(Transport.name) private transportModel: Model<TransportDocument>,
     @InjectModel(Visit.name) private visitModel: Model<VisitDocument>,
   ) {}
 
@@ -34,7 +36,7 @@ export class AdminService {
       totalUsers, newUsersThisMonth, newUsersLastMonth,
       totalBookings, bookingsThisMonth, bookingsLastMonth,
       revenueResult, revenueLastMonthResult,
-      totalTours, totalReviews, totalDestinations, totalGuides, totalAccommodations,
+      totalTours, totalReviews, totalDestinations, totalGuides, totalAccommodations, totalTransport,
       bookingsByStatus, revenueByMonth,
     ] = await Promise.all([
       this.userModel.countDocuments(),
@@ -50,6 +52,7 @@ export class AdminService {
       this.destinationModel.countDocuments({ isDeleted: false }),
       this.guideModel.countDocuments({ isDeleted: false }),
       this.accommodationModel.countDocuments({ isDeleted: false }),
+      this.transportModel.countDocuments({ isDeleted: false }),
       this.bookingModel.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
       this.bookingModel.aggregate([
         { $match: { paymentStatus: 'paid', createdAt: { $gte: new Date(now.getFullYear(), 0, 1) } } },
@@ -66,7 +69,7 @@ export class AdminService {
       users: { total: totalUsers, thisMonth: newUsersThisMonth, growth: newUsersLastMonth > 0 ? ((newUsersThisMonth - newUsersLastMonth) / newUsersLastMonth) * 100 : 0 },
       bookings: { total: totalBookings, thisMonth: bookingsThisMonth, growth: bookingsLastMonth > 0 ? ((bookingsThisMonth - bookingsLastMonth) / bookingsLastMonth) * 100 : 0 },
       revenue: { thisMonth: revenue, commission: revenueResult[0]?.commission || 0, growth: revenueGrowth },
-      listings: { tours: totalTours, reviews: totalReviews, destinations: totalDestinations, guides: totalGuides, accommodations: totalAccommodations },
+      listings: { tours: totalTours, reviews: totalReviews, destinations: totalDestinations, guides: totalGuides, accommodations: totalAccommodations, transport: totalTransport },
       bookingsByStatus: Object.fromEntries(bookingsByStatus.map((b: any) => [b._id, b.count])),
       revenueByMonth,
     }
@@ -214,6 +217,7 @@ export class AdminService {
         { description: new RegExp(q as string, 'i') },
         { bio: new RegExp(q as string, 'i') },
         { category: new RegExp(q as string, 'i') },
+        { route: new RegExp(q as string, 'i') },
       ]
     }
 
@@ -231,6 +235,9 @@ export class AdminService {
         break
       case 'accommodations':
         model = this.accommodationModel
+        break
+      case 'transport':
+        model = this.transportModel
         break
       default:
         throw new BadRequestException('Invalid listing type')
@@ -398,6 +405,26 @@ export class AdminService {
         }
         return this.accommodationModel.create({ ...data, slug, status: data.status || 'active' })
       }
+      case 'transport': {
+        if (!data.name || !String(data.name).trim()) {
+          throw new BadRequestException('A valid name is required for transport listings')
+        }
+        if (!data.type || !['bus', 'car', 'flight', 'ferry'].includes(String(data.type))) {
+          throw new BadRequestException('Transport type must be bus, car, flight, or ferry')
+        }
+        if (!data.route || !String(data.route).trim()) {
+          throw new BadRequestException('A valid route is required for transport listings')
+        }
+        if (data.price === undefined || data.price === null || Number(data.price) < 0) {
+          throw new BadRequestException('A valid price is required for transport listings')
+        }
+        if (!data.description) {
+          data.description = 'Reliable transport service for travellers.'
+        }
+        if (!data.currency) data.currency = 'USD'
+        if (!data.image) data.image = 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?w=800'
+        return this.transportModel.create({ ...data, status: data.status || 'active', isDeleted: false })
+      }
       default:
         throw new BadRequestException('Invalid listing type')
     }
@@ -410,6 +437,7 @@ export class AdminService {
       case 'tours': model = this.tourModel; break
       case 'guides': model = this.guideModel; break
       case 'accommodations': model = this.accommodationModel; break
+      case 'transport': model = this.transportModel; break
       default: throw new BadRequestException('Invalid listing type')
     }
     const item = await model.findByIdAndUpdate(id, { isDeleted: true, status: 'inactive' }, { new: true })
@@ -470,6 +498,16 @@ export class AdminService {
         }
         break
       }
+      case 'transport': {
+        model = this.transportModel
+        if (data.type && !['bus', 'car', 'flight', 'ferry'].includes(String(data.type))) {
+          throw new BadRequestException('Transport type must be bus, car, flight, or ferry')
+        }
+        if (data.price !== undefined && data.price !== null) {
+          data.price = Number(data.price)
+        }
+        break
+      }
       default:
         throw new BadRequestException('Invalid listing type')
     }
@@ -493,6 +531,9 @@ export class AdminService {
         break
       case 'accommodations':
         model = this.accommodationModel
+        break
+      case 'transport':
+        model = this.transportModel
         break
       default:
         throw new BadRequestException('Invalid listing type')
@@ -589,6 +630,13 @@ export class AdminService {
         const accommodations = await this.accommodationModel.insertMany(seedData.collections.accommodations)
         results.accommodations = accommodations.length
         console.log(`✅ Seeded ${accommodations.length} accommodations`)
+      }
+
+      // Transport
+      if (seedData.collections.transport?.length > 0) {
+        const transports = await this.transportModel.insertMany(seedData.collections.transport)
+        results.transport = transports.length
+        console.log(`✅ Seeded ${transports.length} transport listings`)
       }
 
       // Reviews

@@ -113,13 +113,13 @@ export class AdminController {
   }
 
   @Post('listings')
-  @ApiOperation({ summary: 'Create a destination, tour, guide, or accommodation' })
+  @ApiOperation({ summary: 'Create a destination, tour, guide, accommodation, or transport listing' })
   createListing(@Query('type') type: string, @Body() body: Record<string, unknown>) {
     return this.adminService.createListing(type, body)
   }
 
   @Patch('listings/:id')
-  @ApiOperation({ summary: 'Update an existing listing (destination, tour, guide, or accommodation)' })
+  @ApiOperation({ summary: 'Update an existing listing (destination, tour, guide, accommodation, or transport)' })
   updateListing(@Query('type') type: string, @Param('id') id: string, @Body() body: Record<string, unknown>) {
     return this.adminService.updateListing(type, id, body)
   }
