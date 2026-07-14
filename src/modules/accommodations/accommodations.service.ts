@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { Model, FilterQuery } from 'mongoose'
+import { Model, FilterQuery, isValidObjectId } from 'mongoose'
 import { Accommodation, AccommodationDocument } from './schemas/accommodation.schema'
 
 @Injectable()
@@ -44,10 +44,14 @@ export class AccommodationsService {
   }
 
   async findBySlug(slug: string) {
-    const stay = await this.accommodationModel.findOne({
-      $or: [{ slug }, { _id: slug }, { name: slug }],
-      isDeleted: false,
-    })
+    const query: FilterQuery<AccommodationDocument> = { isDeleted: false }
+    if (isValidObjectId(slug)) {
+      query.$or = [{ _id: slug }, { slug }, { name: slug }]
+    } else {
+      query.$or = [{ slug }, { name: slug }]
+    }
+
+    const stay = await this.accommodationModel.findOne(query)
       .populate('destination', 'name slug country heroImage')
       .populate('owner', 'firstName lastName avatar email')
       .lean()
