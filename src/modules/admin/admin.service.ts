@@ -294,15 +294,46 @@ export class AdminService {
   }
 
   private async ensureFallbackDestination(data: Record<string, unknown>) {
-    const existing = await this.destinationModel.findOne({ isDeleted: false }).lean()
+    const fallbackName = 'Kenya'
+    const existing = await this.destinationModel.findOne({ name: fallbackName, isDeleted: false }).lean()
     if (existing) return existing._id as Types.ObjectId
 
-    const fallbackName = (data.name as string)?.trim() || 'Default Destination'
-    const fallbackSlug = this.generateSlug(fallbackName)
     const created = await this.destinationModel.create({
       name: fallbackName,
+      slug: this.generateSlug(fallbackName),
+      description: 'Default country destination',
+      country: 'kenya',
+      heroImage: 'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=1200',
+      status: 'active',
+      featured: false,
+      isDeleted: false,
+    })
+
+    return created._id as Types.ObjectId
+  }
+
+  private async resolveOrCreateDestinationId(value: unknown) {
+    if (!value) return undefined
+    if (typeof value !== 'string') return undefined
+    const cleanValue = value.trim()
+    if (!cleanValue) return undefined
+    if (isValidObjectId(cleanValue)) return new Types.ObjectId(cleanValue)
+
+    const existing = await this.destinationModel.findOne({
+      $or: [
+        { slug: cleanValue },
+        { name: new RegExp(`^${cleanValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      ],
+      isDeleted: false
+    }).lean()
+
+    if (existing) return existing._id as Types.ObjectId
+
+    const fallbackSlug = this.generateSlug(cleanValue)
+    const created = await this.destinationModel.create({
+      name: cleanValue,
       slug: fallbackSlug,
-      description: 'Auto-created destination for admin listings',
+      description: `Auto-created destination for ${cleanValue}`,
       country: 'kenya',
       heroImage: 'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=1200',
       status: 'active',
@@ -342,7 +373,7 @@ export class AdminService {
       case 'tours': {
         const slug = (data.slug as string) || this.generateSlug(data.title as string)
         if (data.destination) {
-          const resolvedDestination = await this.resolveDestinationId(data.destination)
+          const resolvedDestination = await this.resolveOrCreateDestinationId(data.destination)
           if (resolvedDestination) {
             data.destination = resolvedDestination
           } else {
@@ -400,7 +431,7 @@ export class AdminService {
           : await this.ensureUniqueSlug(this.accommodationModel, trimmedName, 'accommodation')
 
         if (data.destination) {
-          const resolvedDestination = await this.resolveDestinationId(data.destination)
+          const resolvedDestination = await this.resolveOrCreateDestinationId(data.destination)
           if (resolvedDestination) {
             data.destination = resolvedDestination
           } else {
@@ -489,7 +520,7 @@ export class AdminService {
       case 'tours': {
         model = this.tourModel
         if (data.destination) {
-          const resolvedDestination = await this.resolveDestinationId(data.destination)
+          const resolvedDestination = await this.resolveOrCreateDestinationId(data.destination)
           if (resolvedDestination) {
             data.destination = resolvedDestination
           } else {
@@ -522,7 +553,7 @@ export class AdminService {
           data.slug = await this.ensureUniqueSlug(this.accommodationModel, String(data.name).trim(), 'accommodation')
         }
         if (data.destination) {
-          const resolvedDestination = await this.resolveDestinationId(data.destination)
+          const resolvedDestination = await this.resolveOrCreateDestinationId(data.destination)
           if (resolvedDestination) {
             data.destination = resolvedDestination
           } else {
