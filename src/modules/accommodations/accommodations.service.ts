@@ -45,10 +45,18 @@ export class AccommodationsService {
 
   async findBySlug(slug: string) {
     const query: FilterQuery<AccommodationDocument> = { isDeleted: false }
+    const nameQuery = slug.replace(/-/g, ' ')
     if (isValidObjectId(slug)) {
-      query.$or = [{ _id: slug }, { slug }, { name: slug }]
+      query.$or = [
+        { _id: slug },
+        { slug },
+        { name: new RegExp('^' + nameQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }
+      ]
     } else {
-      query.$or = [{ slug }, { name: slug }]
+      query.$or = [
+        { slug },
+        { name: new RegExp('^' + nameQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }
+      ]
     }
 
     const stay = await this.accommodationModel.findOne(query)

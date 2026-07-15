@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { Model, FilterQuery } from 'mongoose'
+import { Model, FilterQuery, isValidObjectId } from 'mongoose'
 import { Tour, TourDocument } from './schemas/tour.schema'
 
 export interface ToursQuery {
@@ -65,7 +65,21 @@ export class ToursService {
   }
 
   async findBySlug(slug: string) {
-    const tour = await this.tourModel.findOne({ slug, isDeleted: false })
+    const query: FilterQuery<TourDocument> = { isDeleted: false }
+    const titleQuery = slug.replace(/-/g, ' ')
+    if (isValidObjectId(slug)) {
+      query.$or = [
+        { _id: slug },
+        { slug },
+        { title: new RegExp('^' + titleQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }
+      ]
+    } else {
+      query.$or = [
+        { slug },
+        { title: new RegExp('^' + titleQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }
+      ]
+    }
+    const tour = await this.tourModel.findOne(query)
       .populate('destination', 'name slug country heroImage coordinates description')
       .populate('operator', 'firstName lastName avatar email phone')
       .lean()

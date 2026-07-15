@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { Model, FilterQuery } from 'mongoose'
+import { Model, FilterQuery, isValidObjectId } from 'mongoose'
 import { Destination, DestinationDocument } from './schemas/destination.schema'
 
 @Injectable()
@@ -27,7 +27,21 @@ export class DestinationsService {
   }
 
   async findBySlug(slug: string) {
-    const dest = await this.destModel.findOne({ slug, isDeleted: false }).lean()
+    const query: FilterQuery<DestinationDocument> = { isDeleted: false }
+    const nameQuery = slug.replace(/-/g, ' ')
+    if (isValidObjectId(slug)) {
+      query.$or = [
+        { _id: slug },
+        { slug },
+        { name: new RegExp('^' + nameQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }
+      ]
+    } else {
+      query.$or = [
+        { slug },
+        { name: new RegExp('^' + nameQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }
+      ]
+    }
+    const dest = await this.destModel.findOne(query).lean()
     if (!dest) throw new NotFoundException(`Destination '${slug}' not found`)
     return dest
   }
