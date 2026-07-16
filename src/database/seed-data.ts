@@ -328,43 +328,6 @@ export async function generateSeedData(): Promise<SeedConfig> {
     },
   ]
 
-  // ─── GUIDES ────────────────────────────────────────────────────────────────
-  const guides = [
-    {
-      user: 'guide-joseph-id',
-      bio: 'KWS-certified safari guide with 12 years experience in Maasai Mara. Specialist in big cat behaviour and bird watching. Fluent in English, Swahili, and French.',
-      languages: ['English', 'Swahili', 'French'],
-      certifications: ['KWS Level 3', 'Wilderness First Aid', 'Bird Guide Certificate'],
-      specializations: ['Big Five tracking', 'Bird watching', 'Photography safaris'],
-      experience: 12,
-      hourlyRate: 15,
-      dailyRate: 80,
-      rating: 5.0,
-      reviewCount: 128,
-      category: 'safari',
-      verified: true,
-      status: 'active',
-      isDeleted: false,
-      createdAt: new Date(),
-    },
-    {
-      user: 'guide-amina-id',
-      bio: 'Cultural and city guide with 8 years exploring Zanzibar\'s history, spice farms, and Stone Town. Passionate about Swahili heritage and coastal cuisine.',
-      languages: ['English', 'Swahili', 'Arabic'],
-      certifications: ['Tanzania Tourism Board Certified', 'Cultural Heritage Guide'],
-      specializations: ['Stone Town history', 'Spice tours', 'Swahili culture', 'Street food'],
-      experience: 8,
-      hourlyRate: 12,
-      dailyRate: 60,
-      rating: 4.9,
-      reviewCount: 95,
-      category: 'cultural',
-      verified: true,
-      status: 'active',
-      isDeleted: false,
-      createdAt: new Date(),
-    },
-  ]
 
   // ─── ACCOMMODATIONS ────────────────────────────────────────────────────────
   const accommodationTemplates = [
