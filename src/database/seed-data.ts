@@ -510,7 +510,6 @@ export async function generateSeedData(): Promise<SeedConfig> {
       users,
       destinations,
       tours,
-      guides,
       accommodations,
       transport: transports,
       reviews,
