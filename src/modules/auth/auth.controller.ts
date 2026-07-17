@@ -27,13 +27,13 @@ export class AuthController {
     res.cookie('access_token', result.accessToken, {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     })
     res.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     })
 
@@ -54,13 +54,13 @@ export class AuthController {
     res.cookie('access_token', result.accessToken, {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 24 * 60 * 60 * 1000,
     })
     res.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000,
     })
 
@@ -86,13 +86,13 @@ export class AuthController {
     res.cookie('access_token', tokens.accessToken, {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 24 * 60 * 60 * 1000,
     })
     res.cookie('refresh_token', tokens.refreshToken, {
       httpOnly: true,
       secure: isProd,
-      sameSite: 'lax',
+      sameSite: isProd ? 'none' : 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000,
     })
 
@@ -154,7 +154,7 @@ export class AuthController {
     const scope = 'openid profile email'
     const responseType = 'code'
     const nextPath = (req.query.next as string) || ''
-    const state = nextPath ? `next=${encodeURIComponent(nextPath)}` : ''
+    const state = nextPath ? new URLSearchParams({ next: nextPath }).toString() : ''
 
     if (!clientId) {
       return res.status(500).json({ error: 'Google OAuth not configured' })
@@ -176,7 +176,7 @@ export class AuthController {
   async googleCallback(@Req() req: Request, @Res() res: Response) {
     const code = req.query.code as string
     const state = req.query.state as string
-    const nextPath = state?.startsWith('next=') ? decodeURIComponent(state.slice(5)) : ''
+    const nextPath = state ? new URLSearchParams(state).get('next') || '' : ''
     const host = req.get('host') || 'localhost:3001'
     const protocol = req.protocol || 'http'
     
@@ -217,13 +217,13 @@ export class AuthController {
       res.cookie('access_token', authResult.accessToken, {
         httpOnly: true,
         secure: isProd,
-        sameSite: 'lax',
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 24 * 60 * 60 * 1000,
       })
       res.cookie('refresh_token', authResult.refreshToken, {
         httpOnly: true,
         secure: isProd,
-        sameSite: 'lax',
+        sameSite: isProd ? 'none' : 'lax',
         maxAge: 30 * 24 * 60 * 60 * 1000,
       })
 
