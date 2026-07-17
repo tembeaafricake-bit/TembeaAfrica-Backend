@@ -17,6 +17,18 @@ async function seed() {
   }
   const db = conn.connection.db
 
+  // Safety check to prevent accidental production/dev data wipes
+  const userCount = await db.collection('users').countDocuments()
+  const destinationCount = await db.collection('destinations').countDocuments()
+  if ((userCount > 0 || destinationCount > 0) && process.env.FORCE_SEED !== 'true') {
+    console.error('\n⚠️  WARNING: Database is not empty! Seeding will WIPE OUT all existing data.')
+    console.error('If you are sure you want to reset the database and run the seed script, execute with FORCE_SEED=true:')
+    console.error('  Windows (PowerShell): $env:FORCE_SEED="true"; npm run seed')
+    console.error('  Linux/macOS/Bash:     FORCE_SEED=true npm run seed\n')
+    await mongoose.disconnect()
+    process.exit(1)
+  }
+
   await Promise.all([
     db.collection('users').deleteMany({}),
     db.collection('destinations').deleteMany({}),
