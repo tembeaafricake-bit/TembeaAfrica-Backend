@@ -189,14 +189,27 @@ export class AuthService {
       throw new BadRequestException('No email address provided by Google')
     }
 
+    const googleId = profile.sub || profile.id
     let user = await this.userModel.findOne({ email: email.toLowerCase() })
-    if (!user) {
+    if (user) {
+      let shouldSave = false
+      if (!user.googleId && googleId) {
+        user.googleId = googleId
+        shouldSave = true
+      }
+      if (!user.isVerified) {
+        user.isVerified = true
+        shouldSave = true
+      }
+      if (shouldSave) {
+        await user.save()
+      }
+    } else {
       const displayName = profile.name || profile.displayName || ''
       const nameParts = displayName.split(' ')
       const firstName = profile.given_name || nameParts[0] || 'Google'
       const lastName = profile.family_name || nameParts.slice(1).join(' ') || 'User'
       const avatar = profile.picture || (profile.photos && profile.photos[0]?.value)
-      const googleId = profile.sub || profile.id
 
       user = await this.userModel.create({
         email: email.toLowerCase(),
@@ -209,6 +222,7 @@ export class AuthService {
         password: await bcrypt.hash((googleId || 'google') + Date.now(), 12),
       })
     }
+
     return { user: this.sanitizeUser(user), ...this.generateTokens(user) }
   }
 
