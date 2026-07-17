@@ -21,6 +21,7 @@ export class AuthController {
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
   ) {
+    const result = await this.authService.register(dto)
     const frontendUrl = process.env.FRONTEND_URL || ''
     const crossSite = frontendUrl && !frontendUrl.includes('localhost')
     res.cookie('access_token', result.accessToken, {
@@ -47,6 +48,7 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
+    const result = await this.authService.login(dto)
     const frontendUrl = process.env.FRONTEND_URL || ''
     const crossSite = frontendUrl && !frontendUrl.includes('localhost')
 
