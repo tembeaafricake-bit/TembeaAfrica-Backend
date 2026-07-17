@@ -5,10 +5,11 @@ import { generateSeedData } from './seed-data'
 dotenv.config()
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/tembea-africa'
+const MONGODB_DB = process.env.MONGODB_DB || 'tembea-africa'
 
 async function seed() {
-  console.log('🌱 Connecting to:', MONGODB_URI)
-  const conn = await mongoose.connect(MONGODB_URI)
+  console.log('🌱 Connecting to:', MONGODB_URI, 'db:', MONGODB_DB)
+  const conn = await mongoose.connect(MONGODB_URI, { dbName: MONGODB_DB })
   console.log('✅ Connected (mongoose)')
 
   if (!conn.connection.db) {

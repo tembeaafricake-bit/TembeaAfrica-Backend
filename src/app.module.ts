@@ -32,10 +32,11 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         uri: config.get<string>('MONGODB_URI', 'mongodb://localhost:27017/tembea-africa'),
+        dbName: config.get<string>('MONGODB_DB', 'tembea-africa'),
         useNewUrlParser: true,
         useUnifiedTopology: true,
         connectionFactory: (connection) => {
-          console.log('✅ MongoDB connected')
+          console.log('✅ MongoDB connected to', connection.name)
           return connection
         },
       }),
