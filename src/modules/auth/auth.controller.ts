@@ -21,7 +21,6 @@ export class AuthController {
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.register(dto)
     const frontendUrl = process.env.FRONTEND_URL || ''
     const crossSite = frontendUrl && !frontendUrl.includes('localhost')
     res.cookie('access_token', result.accessToken, {
@@ -48,7 +47,6 @@ export class AuthController {
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const result = await this.authService.login(dto)
     const frontendUrl = process.env.FRONTEND_URL || ''
     const crossSite = frontendUrl && !frontendUrl.includes('localhost')
 
@@ -231,11 +229,20 @@ export class AuthController {
 
       const params = new URLSearchParams({
         googleLoginSuccess: 'true',
+        accessToken: authResult.accessToken,
+        refreshToken: authResult.refreshToken,
         ...(nextPath ? { next: nextPath } : {}),
       })
       return res.redirect(`${frontendUrl}/auth/login?${params.toString()}`)
-    } catch (error) {
-      return res.redirect(`${frontendUrl}/auth/login?error=google_auth_failed`)
+    } catch (error: any) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
+      const errorDescription = encodeURIComponent(
+        error?.response?.data?.error_description ||
+        error?.response?.data?.error ||
+        error?.message ||
+        'google_auth_failed',
+      )
+      return res.redirect(`${frontendUrl}/auth/login?error=google_auth_failed&errorDescription=${errorDescription}`)
     }
   }
 }
