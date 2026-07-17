@@ -22,18 +22,18 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.register(dto)
-    const isProd = process.env.NODE_ENV === 'production'
-    
+    const frontendUrl = process.env.FRONTEND_URL || ''
+    const crossSite = frontendUrl && !frontendUrl.includes('localhost')
     res.cookie('access_token', result.accessToken, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      secure: crossSite,
+      sameSite: crossSite ? 'none' : 'lax',
       maxAge: 24 * 60 * 60 * 1000, // 1 day
     })
     res.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      secure: crossSite,
+      sameSite: crossSite ? 'none' : 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     })
 
@@ -49,18 +49,19 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(dto)
-    const isProd = process.env.NODE_ENV === 'production'
+    const frontendUrl = process.env.FRONTEND_URL || ''
+    const crossSite = frontendUrl && !frontendUrl.includes('localhost')
 
     res.cookie('access_token', result.accessToken, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      secure: crossSite,
+      sameSite: crossSite ? 'none' : 'lax',
       maxAge: 24 * 60 * 60 * 1000,
     })
     res.cookie('refresh_token', result.refreshToken, {
       httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? 'none' : 'lax',
+      secure: crossSite,
+      sameSite: crossSite ? 'none' : 'lax',
       maxAge: 30 * 24 * 60 * 60 * 1000,
     })
 
@@ -212,18 +213,19 @@ export class AuthController {
       })
 
       const authResult = await this.authService.handleGoogleAuth(userInfoResponse.data)
-      const isProd = process.env.NODE_ENV === 'production'
+      const frontendUrl = process.env.FRONTEND_URL || ''
+      const crossSite = frontendUrl && !frontendUrl.includes('localhost')
 
       res.cookie('access_token', authResult.accessToken, {
         httpOnly: true,
-        secure: isProd,
-        sameSite: isProd ? 'none' : 'lax',
+        secure: crossSite,
+        sameSite: crossSite ? 'none' : 'lax',
         maxAge: 24 * 60 * 60 * 1000,
       })
       res.cookie('refresh_token', authResult.refreshToken, {
         httpOnly: true,
-        secure: isProd,
-        sameSite: isProd ? 'none' : 'lax',
+        secure: crossSite,
+        sameSite: crossSite ? 'none' : 'lax',
         maxAge: 30 * 24 * 60 * 60 * 1000,
       })
 
