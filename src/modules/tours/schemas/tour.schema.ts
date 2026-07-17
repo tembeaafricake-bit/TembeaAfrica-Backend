@@ -34,11 +34,11 @@ export class Tour {
   @Prop()
   shortDescription?: string
 
-  @Prop({ type: Types.ObjectId, ref: 'Destination', required: true })
-  destination: Types.ObjectId
+  @Prop({ type: String, ref: 'Destination', required: true })
+  destination: string
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  operator: Types.ObjectId
+  @Prop({ type: String, ref: 'User', required: true })
+  operator: string
 
   @Prop({ enum: ['safari', 'beach', 'adventure', 'cultural', 'mountain', 'city', 'daytrip', 'multiday'], required: true })
   category: string

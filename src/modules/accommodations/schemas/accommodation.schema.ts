@@ -18,8 +18,8 @@ export class Accommodation {
   @Prop({ required: true }) name: string
   @Prop({ required: true, unique: true }) slug: string
     @Prop({ enum: ['hotel', 'bnb', 'guesthouse', 'hostel', 'lodge', 'resort', 'villa', 'camping', 'restaurant'], required: true }) type: string
-  @Prop({ type: Types.ObjectId, ref: 'Destination', required: true }) destination: Types.ObjectId
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true }) owner: Types.ObjectId
+  @Prop({ type: String, ref: 'Destination', required: true }) destination: string
+  @Prop({ type: String, ref: 'User', required: true }) owner: string
   @Prop({ required: true }) description: string
   @Prop({ type: [String], default: [] }) images: string[]
   @Prop({ required: true, min: 0 }) pricePerNight: number

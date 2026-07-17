@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model, FilterQuery, isValidObjectId } from 'mongoose'
 import { Accommodation, AccommodationDocument } from './schemas/accommodation.schema'
@@ -6,6 +6,7 @@ import { Destination, DestinationDocument } from '../destinations/schemas/destin
 
 @Injectable()
 export class AccommodationsService {
+  private readonly logger = new Logger(AccommodationsService.name)
   constructor(
     @InjectModel(Accommodation.name) private accommodationModel: Model<AccommodationDocument>,
     @InjectModel(Destination.name) private destinationModel: Model<DestinationDocument>,
@@ -32,36 +33,52 @@ export class AccommodationsService {
   }
 
   async findAll(query: Record<string, unknown>) {
-    const { page = 1, limit = 12, type, destination, minPrice, maxPrice, q, sort = 'rating' } = query
-    const skip = ((page as number) - 1) * (limit as number)
-    const filter: FilterQuery<AccommodationDocument> = { status: 'active', isDeleted: { $ne: true } }
-    if (type) filter.type = type
-    const destinationId = await this.resolveDestinationId(destination as string)
-    if (destination && destinationId) {
-      filter.destination = destinationId
-    } else if (destination) {
-      return { data: [], total: 0, page, limit, totalPages: 0 }
+    try {
+      const { page = 1, limit = 12, type, destination, minPrice, maxPrice, q, sort = 'rating' } = query
+      const skip = ((page as number) - 1) * (limit as number)
+      const filter: FilterQuery<AccommodationDocument> = { status: 'active', isDeleted: { $ne: true } }
+      if (type) filter.type = type
+      const destinationId = await this.resolveDestinationId(destination as string)
+      if (destination && destinationId) {
+        filter.destination = destinationId
+      } else if (destination) {
+        return { data: [], total: 0, page, limit, totalPages: 0 }
+      }
+      if (minPrice || maxPrice) filter.pricePerNight = {
+        ...(minPrice && { $gte: Number(minPrice) }),
+        ...(maxPrice && { $lte: Number(maxPrice) }),
+      }
+      if (q) filter.$or = [
+        { name: new RegExp(q as string, 'i') },
+        { description: new RegExp(q as string, 'i') },
+      ]
+      const sortMap: Record<string, Record<string, 1 | -1>> = {
+        rating: { rating: -1 },
+        'price-asc': { pricePerNight: 1 },
+        'price-desc': { pricePerNight: -1 },
+      }
+      const buildAccommodationsQuery = () => this.accommodationModel
+        .find(filter)
+        .sort(sortMap[sort as string] || { rating: -1 })
+        .skip(skip)
+        .limit(limit as number)
+      const [data, total] = await Promise.all([
+        buildAccommodationsQuery()
+          .populate('destination', 'name slug country')
+          .lean()
+          .catch(async (error) => {
+            // Some legacy listings reference pre-migration string IDs. Return
+            // the listings without population instead of failing the catalog.
+            this.logger.warn('Unable to populate accommodation destinations; returning base listings.', error)
+            return buildAccommodationsQuery().lean()
+          }),
+        this.accommodationModel.countDocuments(filter),
+      ])
+      return { data, total, page, limit, totalPages: Math.ceil(total / (limit as number)) }
+    } catch (error) {
+      this.logger.error('Failed to fetch accommodations', error as Error)
+      throw error
     }
-    if (minPrice || maxPrice) filter.pricePerNight = {
-      ...(minPrice && { $gte: Number(minPrice) }),
-      ...(maxPrice && { $lte: Number(maxPrice) }),
-    }
-    if (q) filter.$or = [
-      { name: new RegExp(q as string, 'i') },
-      { description: new RegExp(q as string, 'i') },
-    ]
-    const sortMap: Record<string, Record<string, 1 | -1>> = {
-      rating: { rating: -1 },
-      'price-asc': { pricePerNight: 1 },
-      'price-desc': { pricePerNight: -1 },
-    }
-    const [data, total] = await Promise.all([
-      this.accommodationModel.find(filter).sort(sortMap[sort as string] || { rating: -1 }).skip(skip).limit(limit as number)
-        .populate('destination', 'name slug country')
-        .lean(),
-      this.accommodationModel.countDocuments(filter),
-    ])
-    return { data, total, page, limit, totalPages: Math.ceil(total / (limit as number)) }
   }
 
   async findFeatured() {

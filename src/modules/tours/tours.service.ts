@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model, FilterQuery, isValidObjectId } from 'mongoose'
 import { Tour, TourDocument } from './schemas/tour.schema'
@@ -21,6 +21,8 @@ export interface ToursQuery {
 
 @Injectable()
 export class ToursService {
+  private readonly logger = new Logger(ToursService.name)
+
   constructor(
     @InjectModel(Tour.name) private tourModel: Model<TourDocument>,
     @InjectModel(Destination.name) private destinationModel: Model<DestinationDocument>,
@@ -47,50 +49,52 @@ export class ToursService {
   }
 
   async findAll(query: ToursQuery) {
-    const { page = 1, limit = 12, destination, category, minPrice, maxPrice, rating, q, sort = 'rating', featured, instantBooking } = query
-    const skip = (page - 1) * limit
-    const filter: FilterQuery<TourDocument> = { status: 'active', isDeleted: { $ne: true } }
+    try {
+      const { page = 1, limit = 12, destination, category, minPrice, maxPrice, rating, q, sort = 'rating', featured, instantBooking } = query
+      const skip = (page - 1) * limit
+      const filter: FilterQuery<TourDocument> = { status: 'active', isDeleted: { $ne: true } }
 
-    const destinationId = await this.resolveDestinationId(destination)
-    if (destination && destinationId) {
-      filter.destination = destinationId
-    } else if (destination) {
-      return { data: [], total: 0, page, limit, totalPages: 0 }
+      const destinationId = await this.resolveDestinationId(destination)
+      if (destination && destinationId) {
+        filter.destination = destinationId
+      } else if (destination) {
+        return { data: [], total: 0, page, limit, totalPages: 0 }
+      }
+
+      if (category) filter.category = category
+      if (featured !== undefined) filter.featured = featured
+      if (instantBooking !== undefined) filter.instantBooking = instantBooking
+      if (minPrice || maxPrice) filter.price = { ...(minPrice && { $gte: Number(minPrice) }), ...(maxPrice && { $lte: Number(maxPrice) }) }
+      if (rating) filter.rating = { $gte: Number(rating) }
+      if (q) filter.$text = { $search: q }
+
+      const sortMap: Record<string, Record<string, 1 | -1>> = {
+        rating: { rating: -1 },
+        'price-asc': { price: 1 },
+        'price-desc': { price: -1 },
+        newest: { createdAt: -1 },
+        popular: { totalBookings: -1 },
+      }
+      const sortObj = sortMap[sort] || { rating: -1 }
+
+      const buildToursQuery = () => this.tourModel.find(filter).sort(sortObj).skip(skip).limit(limit)
+      const [data, total] = await Promise.all([
+        buildToursQuery()
+          .populate('destination', 'name slug country heroImage')
+          .populate('operator', 'firstName lastName avatar')
+          .lean()
+          .catch(async (error) => {
+            this.logger.error('Unable to populate tour relations', error)
+            return buildToursQuery().lean()
+          }),
+        this.tourModel.countDocuments(filter),
+      ])
+
+      return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
+    } catch (error) {
+      this.logger.error('Failed to fetch tours', error as Error)
+      throw error
     }
-
-    if (category) filter.category = category
-    if (featured !== undefined) filter.featured = featured
-    if (instantBooking !== undefined) filter.instantBooking = instantBooking
-    if (minPrice || maxPrice) filter.price = { ...(minPrice && { $gte: Number(minPrice) }), ...(maxPrice && { $lte: Number(maxPrice) }) }
-    if (rating) filter.rating = { $gte: Number(rating) }
-    if (q) filter.$text = { $search: q }
-
-    const sortMap: Record<string, Record<string, 1 | -1>> = {
-      rating: { rating: -1 },
-      'price-asc': { price: 1 },
-      'price-desc': { price: -1 },
-      newest: { createdAt: -1 },
-      popular: { totalBookings: -1 },
-    }
-    const sortObj = sortMap[sort] || { rating: -1 }
-
-    const buildToursQuery = () => this.tourModel.find(filter).sort(sortObj).skip(skip).limit(limit)
-    const [data, total] = await Promise.all([
-      buildToursQuery()
-        .populate('destination', 'name slug country heroImage')
-        .populate('operator', 'firstName lastName avatar')
-        .lean()
-        .catch(async (error) => {
-          // A stale or malformed reference must not prevent visitors from
-          // browsing every tour. Return the listing and let the client use
-          // its existing safe fallbacks for unresolved relation fields.
-          console.error('Unable to populate tour relations:', error)
-          return buildToursQuery().lean()
-        }),
-      this.tourModel.countDocuments(filter),
-    ])
-
-    return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
   }
 
   async findFeatured() {

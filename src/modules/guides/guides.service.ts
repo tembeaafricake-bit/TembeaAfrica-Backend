@@ -10,7 +10,7 @@ export class GuidesService {
   async findAll(query: Record<string, unknown>) {
     const { page = 1, limit = 20, category, q, verified, sort = 'rating' } = query
     const skip = ((page as number) - 1) * (limit as number)
-    const filter: FilterQuery<GuideDocument> = { status: 'active', isDeleted: false }
+    const filter: FilterQuery<GuideDocument> = { status: 'active', isDeleted: { $ne: true } }
     if (category) filter.category = category
     if (verified !== undefined) filter.verified = verified === 'true' || verified === true
     if (q) filter.$or = [
@@ -33,7 +33,7 @@ export class GuidesService {
   }
 
   async findFeatured() {
-    const data = await this.guideModel.find({ status: 'active', isDeleted: false, verified: true })
+    const data = await this.guideModel.find({ status: 'active', isDeleted: { $ne: true }, verified: true })
       .sort({ rating: -1 }).limit(8)
       .populate('user', 'firstName lastName avatar')
       .lean()
@@ -41,7 +41,7 @@ export class GuidesService {
   }
 
   async findById(id: string) {
-    const guide = await this.guideModel.findOne({ _id: id, isDeleted: false })
+    const guide = await this.guideModel.findOne({ _id: id, isDeleted: { $ne: true } })
       .populate('user', 'firstName lastName avatar email phone')
       .populate('primaryDestination', 'name slug country heroImage')
       .lean()
