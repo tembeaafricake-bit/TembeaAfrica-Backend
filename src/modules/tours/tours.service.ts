@@ -34,7 +34,7 @@ export class ToursService {
 
     const slug = value.replace(/\s+/g, '-')
     const destinationDoc = await this.destinationModel.findOne({
-      isDeleted: false,
+      isDeleted: { $ne: true },
       $or: [
         { _id: value },
         { slug: value },
@@ -49,7 +49,7 @@ export class ToursService {
   async findAll(query: ToursQuery) {
     const { page = 1, limit = 12, destination, category, minPrice, maxPrice, rating, q, sort = 'rating', featured, instantBooking } = query
     const skip = (page - 1) * limit
-    const filter: FilterQuery<TourDocument> = { status: 'active', isDeleted: false }
+    const filter: FilterQuery<TourDocument> = { status: 'active', isDeleted: { $ne: true } }
 
     const destinationId = await this.resolveDestinationId(destination)
     if (destination && destinationId) {
@@ -94,7 +94,7 @@ export class ToursService {
   }
 
   async findFeatured() {
-    const filter = { featured: true, status: 'active', isDeleted: false }
+    const filter = { featured: true, status: 'active', isDeleted: { $ne: true } }
     const buildFeaturedQuery = () => this.tourModel.find(filter).sort({ rating: -1 }).limit(9)
     const data = await buildFeaturedQuery()
       .populate('destination', 'name slug country heroImage')
@@ -108,7 +108,7 @@ export class ToursService {
   }
 
   async findBySlug(slug: string) {
-    const query: FilterQuery<TourDocument> = { isDeleted: false }
+    const query: FilterQuery<TourDocument> = { isDeleted: { $ne: true } }
     const titleQuery = slug.replace(/-/g, ' ')
     if (isValidObjectId(slug)) {
       query.$or = [
@@ -137,7 +137,7 @@ export class ToursService {
   }
 
   async findByDestination(destinationId: string, limit = 6) {
-    return this.tourModel.find({ destination: destinationId, status: 'active', isDeleted: false })
+    return this.tourModel.find({ destination: destinationId, status: 'active', isDeleted: { $ne: true } })
       .sort({ rating: -1 }).limit(limit)
       .populate('operator', 'firstName lastName avatar')
       .lean()

@@ -10,7 +10,7 @@ export class TransportService {
   async findAll(query: Record<string, unknown>) {
     const { page = 1, limit = 20, q, status, type } = query
     const skip = ((page as number) - 1) * (limit as number)
-    const filter: Record<string, unknown> = { isDeleted: false }
+    const filter: Record<string, unknown> = { isDeleted: { $ne: true } }
     if (status) filter.status = status
     if (type) filter.type = type
     if (q) {
@@ -32,7 +32,7 @@ export class TransportService {
   async findOne(id: string) {
     const transport = await this.transportModel.findOne({
       $or: [{ _id: id }, { slug: id }, { name: id }],
-      isDeleted: false,
+      isDeleted: { $ne: true },
     }).lean()
     if (!transport) {
       throw new NotFoundException('Transport listing not found')

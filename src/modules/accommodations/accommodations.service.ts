@@ -19,7 +19,7 @@ export class AccommodationsService {
 
     const slug = value.replace(/\s+/g, '-')
     const destinationDoc = await this.destinationModel.findOne({
-      isDeleted: false,
+      isDeleted: { $ne: true },
       $or: [
         { _id: value },
         { slug: value },
@@ -34,7 +34,7 @@ export class AccommodationsService {
   async findAll(query: Record<string, unknown>) {
     const { page = 1, limit = 12, type, destination, minPrice, maxPrice, q, sort = 'rating' } = query
     const skip = ((page as number) - 1) * (limit as number)
-    const filter: FilterQuery<AccommodationDocument> = { status: 'active', isDeleted: false }
+    const filter: FilterQuery<AccommodationDocument> = { status: 'active', isDeleted: { $ne: true } }
     if (type) filter.type = type
     const destinationId = await this.resolveDestinationId(destination as string)
     if (destination && destinationId) {
@@ -65,7 +65,7 @@ export class AccommodationsService {
   }
 
   async findFeatured() {
-    const data = await this.accommodationModel.find({ featured: true, status: 'active', isDeleted: false })
+    const data = await this.accommodationModel.find({ featured: true, status: 'active', isDeleted: { $ne: true } })
       .sort({ rating: -1 }).limit(6)
       .populate('destination', 'name slug country')
       .lean()
@@ -73,7 +73,7 @@ export class AccommodationsService {
   }
 
   async findBySlug(slug: string) {
-    const query: FilterQuery<AccommodationDocument> = { isDeleted: false }
+    const query: FilterQuery<AccommodationDocument> = { isDeleted: { $ne: true } }
     const nameQuery = slug.replace(/-/g, ' ')
     if (isValidObjectId(slug)) {
       query.$or = [

@@ -208,7 +208,7 @@ export class AdminService {
   async getListings(type: string, query: Record<string, unknown>) {
     const { page = 1, limit = 20, q, status } = query
     const skip = ((page as number) - 1) * (limit as number)
-    const filter: Record<string, unknown> = { isDeleted: false }
+    const filter: Record<string, unknown> = { isDeleted: { $ne: true } }
     if (status) filter.status = status
     if (q) {
       filter.$or = [

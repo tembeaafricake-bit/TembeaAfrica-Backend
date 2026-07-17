@@ -10,7 +10,7 @@ export class DestinationsService {
   async findAll(query: Record<string, unknown>) {
     const { page = 1, limit = 20, country, q, sort = 'rating' } = query
     const skip = ((page as number) - 1) * (limit as number)
-    const filter: FilterQuery<DestinationDocument> = { status: 'active', isDeleted: false }
+    const filter: FilterQuery<DestinationDocument> = { status: 'active', isDeleted: { $ne: true } }
     if (country) filter.country = country
     if (q) filter.$text = { $search: q as string }
     const sortMap: Record<string, Record<string, 1 | -1>> = { rating: { rating: -1 }, name: { name: 1 }, newest: { createdAt: -1 } }
@@ -22,12 +22,12 @@ export class DestinationsService {
   }
 
   async findFeatured() {
-    const data = await this.destModel.find({ featured: true, status: 'active', isDeleted: false }).sort({ rating: -1 }).limit(8).lean()
+    const data = await this.destModel.find({ featured: true, status: 'active', isDeleted: { $ne: true } }).sort({ rating: -1 }).limit(8).lean()
     return { data }
   }
 
   async findBySlug(slug: string) {
-    const query: FilterQuery<DestinationDocument> = { isDeleted: false }
+    const query: FilterQuery<DestinationDocument> = { isDeleted: { $ne: true } }
     const nameQuery = slug.replace(/-/g, ' ')
     if (isValidObjectId(slug)) {
       query.$or = [
@@ -47,7 +47,7 @@ export class DestinationsService {
   }
 
   async findByCountry(country: string) {
-    return this.destModel.find({ country, status: 'active', isDeleted: false }).sort({ featured: -1, rating: -1 }).lean()
+    return this.destModel.find({ country, status: 'active', isDeleted: { $ne: true } }).sort({ featured: -1, rating: -1 }).lean()
   }
 
   async create(data: Partial<Destination>) {
