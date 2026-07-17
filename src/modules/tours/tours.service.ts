@@ -29,10 +29,20 @@ export class ToursService {
   private async resolveDestinationId(destination?: string) {
     if (!destination) return undefined
 
-    if (isValidObjectId(destination)) return destination
+    const value = destination.toString().toLowerCase().trim()
+    if (isValidObjectId(value)) return value
 
-    const slug = destination.toLowerCase().trim()
-    const destinationDoc = await this.destinationModel.findOne({ slug, isDeleted: false }).select('_id').lean()
+    const slug = value.replace(/\s+/g, '-')
+    const destinationDoc = await this.destinationModel.findOne({
+      isDeleted: false,
+      $or: [
+        { _id: value },
+        { slug: value },
+        { slug },
+        { name: new RegExp(`^${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      ],
+    }).select('_id').lean()
+
     return destinationDoc?._id
   }
 
@@ -42,8 +52,11 @@ export class ToursService {
     const filter: FilterQuery<TourDocument> = { status: 'active', isDeleted: false }
 
     const destinationId = await this.resolveDestinationId(destination)
-    if (destination && destinationId) filter.destination = destinationId
-    else if (destination) filter.destination = destination
+    if (destination && destinationId) {
+      filter.destination = destinationId
+    } else if (destination) {
+      return { data: [], total: 0, page, limit, totalPages: 0 }
+    }
 
     if (category) filter.category = category
     if (featured !== undefined) filter.featured = featured
@@ -61,11 +74,19 @@ export class ToursService {
     }
     const sortObj = sortMap[sort] || { rating: -1 }
 
+    const buildToursQuery = () => this.tourModel.find(filter).sort(sortObj).skip(skip).limit(limit)
     const [data, total] = await Promise.all([
-      this.tourModel.find(filter).sort(sortObj).skip(skip).limit(limit)
+      buildToursQuery()
         .populate('destination', 'name slug country heroImage')
         .populate('operator', 'firstName lastName avatar')
-        .lean(),
+        .lean()
+        .catch(async (error) => {
+          // A stale or malformed reference must not prevent visitors from
+          // browsing every tour. Return the listing and let the client use
+          // its existing safe fallbacks for unresolved relation fields.
+          console.error('Unable to populate tour relations:', error)
+          return buildToursQuery().lean()
+        }),
       this.tourModel.countDocuments(filter),
     ])
 
@@ -73,11 +94,16 @@ export class ToursService {
   }
 
   async findFeatured() {
-    const data = await this.tourModel.find({ featured: true, status: 'active', isDeleted: false })
-      .sort({ rating: -1 }).limit(9)
+    const filter = { featured: true, status: 'active', isDeleted: false }
+    const buildFeaturedQuery = () => this.tourModel.find(filter).sort({ rating: -1 }).limit(9)
+    const data = await buildFeaturedQuery()
       .populate('destination', 'name slug country heroImage')
       .populate('operator', 'firstName lastName avatar')
       .lean()
+      .catch(async (error) => {
+        console.error('Unable to populate featured tour relations:', error)
+        return buildFeaturedQuery().lean()
+      })
     return { data }
   }
 

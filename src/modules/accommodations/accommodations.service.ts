@@ -2,17 +2,46 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose'
 import { Model, FilterQuery, isValidObjectId } from 'mongoose'
 import { Accommodation, AccommodationDocument } from './schemas/accommodation.schema'
+import { Destination, DestinationDocument } from '../destinations/schemas/destination.schema'
 
 @Injectable()
 export class AccommodationsService {
-  constructor(@InjectModel(Accommodation.name) private accommodationModel: Model<AccommodationDocument>) {}
+  constructor(
+    @InjectModel(Accommodation.name) private accommodationModel: Model<AccommodationDocument>,
+    @InjectModel(Destination.name) private destinationModel: Model<DestinationDocument>,
+  ) {}
+
+  private async resolveDestinationId(destination?: string) {
+    if (!destination) return undefined
+
+    const value = destination.toString().toLowerCase().trim()
+    if (isValidObjectId(value)) return value
+
+    const slug = value.replace(/\s+/g, '-')
+    const destinationDoc = await this.destinationModel.findOne({
+      isDeleted: false,
+      $or: [
+        { _id: value },
+        { slug: value },
+        { slug },
+        { name: new RegExp(`^${value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      ],
+    }).select('_id').lean()
+
+    return destinationDoc?._id
+  }
 
   async findAll(query: Record<string, unknown>) {
     const { page = 1, limit = 12, type, destination, minPrice, maxPrice, q, sort = 'rating' } = query
     const skip = ((page as number) - 1) * (limit as number)
     const filter: FilterQuery<AccommodationDocument> = { status: 'active', isDeleted: false }
     if (type) filter.type = type
-    if (destination) filter.destination = destination
+    const destinationId = await this.resolveDestinationId(destination as string)
+    if (destination && destinationId) {
+      filter.destination = destinationId
+    } else if (destination) {
+      return { data: [], total: 0, page, limit, totalPages: 0 }
+    }
     if (minPrice || maxPrice) filter.pricePerNight = {
       ...(minPrice && { $gte: Number(minPrice) }),
       ...(maxPrice && { $lte: Number(maxPrice) }),
