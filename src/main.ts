@@ -72,10 +72,11 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config)
   SwaggerModule.setup('api/docs', app, document)
 
-  const port = process.env.PORT || 3001
-  await app.listen(port)
-  console.log(`🌍 Tembea Africa API running on: http://localhost:${port}/api`)
-  console.log(`📚 Swagger docs at: http://localhost:${port}/api/docs`)
-  console.log(`💡 To seed database via API: POST http://localhost:${port}/api/admin/seed (requires admin auth)\n`)
+  const port = Number(process.env.PORT || 3001)
+  const host = process.env.HOST || '0.0.0.0'
+  await app.listen(port, host)
+  console.log(`🌍 Tembea Africa API running on: http://${host}:${port}/api`)
+  console.log(`📚 Swagger docs at: http://${host}:${port}/api/docs`)
+  console.log(`💡 To seed database via API: POST http://${host}:${port}/api/admin/seed (requires admin auth)\n`)
 }
 bootstrap()
