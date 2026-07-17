@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { InjectModel } from '@nestjs/mongoose'
 import { Model, FilterQuery, isValidObjectId } from 'mongoose'
 import { Tour, TourDocument } from './schemas/tour.schema'
+import { Destination, DestinationDocument } from '../destinations/schemas/destination.schema'
 
 export interface ToursQuery {
   page?: number
@@ -20,14 +21,30 @@ export interface ToursQuery {
 
 @Injectable()
 export class ToursService {
-  constructor(@InjectModel(Tour.name) private tourModel: Model<TourDocument>) {}
+  constructor(
+    @InjectModel(Tour.name) private tourModel: Model<TourDocument>,
+    @InjectModel(Destination.name) private destinationModel: Model<DestinationDocument>,
+  ) {}
+
+  private async resolveDestinationId(destination?: string) {
+    if (!destination) return undefined
+
+    if (isValidObjectId(destination)) return destination
+
+    const slug = destination.toLowerCase().trim()
+    const destinationDoc = await this.destinationModel.findOne({ slug, isDeleted: false }).select('_id').lean()
+    return destinationDoc?._id
+  }
 
   async findAll(query: ToursQuery) {
     const { page = 1, limit = 12, destination, category, minPrice, maxPrice, rating, q, sort = 'rating', featured, instantBooking } = query
     const skip = (page - 1) * limit
     const filter: FilterQuery<TourDocument> = { status: 'active', isDeleted: false }
 
-    if (destination) filter.destination = destination
+    const destinationId = await this.resolveDestinationId(destination)
+    if (destination && destinationId) filter.destination = destinationId
+    else if (destination) filter.destination = destination
+
     if (category) filter.category = category
     if (featured !== undefined) filter.featured = featured
     if (instantBooking !== undefined) filter.instantBooking = instantBooking
