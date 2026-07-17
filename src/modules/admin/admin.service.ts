@@ -243,12 +243,22 @@ export class AdminService {
         throw new BadRequestException('Invalid listing type')
     }
 
-    const listQuery = model.find(filter).sort(sort).skip(skip).limit(limit as number)
+    let listQuery = model.find(filter).sort(sort).skip(skip).limit(limit as number)
+    
+    // Populate references with lenient error handling
     if (type === 'guides') {
-      listQuery.populate('user', 'firstName lastName email')
+      listQuery = listQuery.populate({
+        path: 'user',
+        select: 'firstName lastName email',
+        options: { strictPopulate: false }, // Don't throw on missing ref
+      })
     }
     if (type === 'accommodations') {
-      listQuery.populate('owner', 'firstName lastName email')
+      listQuery = listQuery.populate({
+        path: 'owner',
+        select: 'firstName lastName email',
+        options: { strictPopulate: false },
+      })
     }
 
     const [data, total] = await Promise.all([
