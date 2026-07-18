@@ -396,15 +396,21 @@ export class AdminService {
     return (value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
   }
 
-  private async ensureUniqueSlug(model: Model<any>, value: string, fallback = 'listing') {
+  private async ensureUniqueSlug(model: Model<any>, value: string, fallback = 'listing', excludeId?: string) {
     const baseSlug = this.buildSlug(value || fallback) || fallback
     const escaped = baseSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const existing = await model.findOne({ slug: { $regex: `^${escaped}(?:-\\d+)?$`, $options: 'i' } }).lean()
+    const query: any = { slug: { $regex: `^${escaped}(?:-\\d+)?$`, $options: 'i' } }
+    if (excludeId && isValidObjectId(excludeId)) query._id = { $ne: excludeId }
+    const existing = await model.findOne(query).lean()
     if (!existing) return baseSlug
 
     let counter = 2
     let candidate = `${baseSlug}-${counter}`
-    while (await model.findOne({ slug: candidate }).lean()) {
+    const candidateQueryBase: any = excludeId && isValidObjectId(excludeId)
+      ? { _id: { $ne: excludeId } }
+      : {}
+
+    while (await model.findOne({ slug: candidate, ...candidateQueryBase }).lean()) {
       counter += 1
       candidate = `${baseSlug}-${counter}`
     }
@@ -595,10 +601,14 @@ export class AdminService {
       case 'accommodations': {
         model = this.accommodationModel
         if (typeof data.name === 'string' && data.name.trim()) {
-          data.name = data.name.trim()
-        }
-        if (typeof data.name === 'string' && data.name.trim() && !data.slug) {
-          data.slug = await this.ensureUniqueSlug(this.accommodationModel, String(data.name).trim(), 'accommodation')
+          const trimmedName = data.name.trim()
+          data.name = trimmedName
+          if (!data.slug) {
+            const existing = await this.accommodationModel.findById(id).select('slug').lean()
+            if (!existing?.slug) {
+              data.slug = await this.ensureUniqueSlug(this.accommodationModel, trimmedName, 'accommodation', id)
+            }
+          }
         }
         if (data.destination) {
           const resolvedDestination = await this.resolveOrCreateDestinationId(data.destination)
@@ -620,10 +630,14 @@ export class AdminService {
       case 'transport': {
         model = this.transportModel
         if (typeof data.name === 'string' && data.name.trim()) {
-          data.name = data.name.trim()
-        }
-        if (typeof data.name === 'string' && data.name.trim() && !data.slug) {
-          data.slug = await this.ensureUniqueSlug(this.transportModel, String(data.name).trim(), 'transport')
+          const trimmedName = data.name.trim()
+          data.name = trimmedName
+          if (!data.slug) {
+            const existing = await this.transportModel.findById(id).select('slug').lean()
+            if (!existing?.slug) {
+              data.slug = await this.ensureUniqueSlug(this.transportModel, trimmedName, 'transport', id)
+            }
+          }
         }
         if (data.type && !['bus', 'car', 'flight', 'ferry'].includes(String(data.type))) {
           throw new BadRequestException('Transport type must be bus, car, flight, or ferry')
