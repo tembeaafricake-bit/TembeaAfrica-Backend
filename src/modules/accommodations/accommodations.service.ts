@@ -32,6 +32,49 @@ export class AccommodationsService {
     return destinationDoc?._id
   }
 
+  private async normalizeAccommodationDestinations(listings: any[]) {
+    if (!Array.isArray(listings) || listings.length === 0) return listings
+
+    const destinationValues = Array.from(new Set(
+      listings
+        .map((item: any) => item.destination)
+        .filter((destination): destination is string => typeof destination === 'string' && destination.trim() !== ''),
+    ))
+
+    if (destinationValues.length === 0) return listings
+
+    const validDestinationIds = destinationValues.filter((destination) => isValidObjectId(destination))
+    const invalidDestinationKeys = destinationValues.filter((destination) => !isValidObjectId(destination))
+
+    const destinationFilter: FilterQuery<DestinationDocument> = { $or: [] }
+    if (validDestinationIds.length > 0) destinationFilter.$or.push({ _id: { $in: validDestinationIds } })
+    if (invalidDestinationKeys.length > 0) {
+      destinationFilter.$or.push({ slug: { $in: invalidDestinationKeys } })
+      destinationFilter.$or.push({ name: { $in: invalidDestinationKeys } })
+    }
+
+    const destinations = destinationFilter.$or.length > 0
+      ? await this.destinationModel.find(destinationFilter).select('name slug country heroImage').lean()
+      : []
+
+    const destinationsById = new Map(destinations.map((dest: any) => [dest._id.toString(), dest]))
+    const destinationsBySlug = new Map(destinations.map((dest: any) => [dest.slug, dest]))
+    const destinationsByName = new Map(destinations.map((dest: any) => [dest.name, dest]))
+
+    return listings.map((item: any) => {
+      if (item.destination && typeof item.destination === 'string') {
+        return {
+          ...item,
+          destination: destinationsById.get(item.destination)
+            || destinationsBySlug.get(item.destination)
+            || destinationsByName.get(item.destination)
+            || item.destination,
+        }
+      }
+      return item
+    })
+  }
+
   async findAll(query: Record<string, unknown>) {
     try {
       const { page = 1, limit = 12, type, destination, minPrice, maxPrice, q, sort = 'rating' } = query
@@ -62,18 +105,9 @@ export class AccommodationsService {
         .sort(sortMap[sort as string] || { rating: -1 })
         .skip(skip)
         .limit(limit as number)
-      const [data, total] = await Promise.all([
-        buildAccommodationsQuery()
-          .populate('destination', 'name slug country')
-          .lean()
-          .catch(async (error) => {
-            // Some legacy listings reference pre-migration string IDs. Return
-            // the listings without population instead of failing the catalog.
-            this.logger.warn('Unable to populate accommodation destinations; returning base listings.', error)
-            return buildAccommodationsQuery().lean()
-          }),
-        this.accommodationModel.countDocuments(filter),
-      ])
+      const rawData = await buildAccommodationsQuery().lean()
+      const total = await this.accommodationModel.countDocuments(filter)
+      const data = await this.normalizeAccommodationDestinations(rawData)
       return { data, total, page, limit, totalPages: Math.ceil(total / (limit as number)) }
     } catch (error) {
       this.logger.error('Failed to fetch accommodations', error as Error)
@@ -82,11 +116,18 @@ export class AccommodationsService {
   }
 
   async findFeatured() {
-    const data = await this.accommodationModel.find({ featured: true, status: 'active', isDeleted: { $ne: true } })
+    const query = this.accommodationModel.find({ featured: true, status: 'active', isDeleted: { $ne: true } })
       .sort({ rating: -1 }).limit(6)
       .populate('destination', 'name slug country')
-      .lean()
-    return { data }
+
+    const data = await query.lean().catch(async (error) => {
+      this.logger.warn('Unable to populate featured accommodation destinations; returning base listings.', error)
+      return this.accommodationModel.find({ featured: true, status: 'active', isDeleted: { $ne: true } })
+        .sort({ rating: -1 }).limit(6).lean()
+    })
+
+    const normalized = await this.normalizeAccommodationDestinations(data)
+    return { data: normalized }
   }
 
   async findBySlug(slug: string) {
@@ -109,8 +150,14 @@ export class AccommodationsService {
       .populate('destination', 'name slug country heroImage')
       .populate('owner', 'firstName lastName avatar email')
       .lean()
+      .catch(async (error) => {
+        this.logger.warn('Unable to populate accommodation details; returning base stay.', error)
+        return this.accommodationModel.findOne(query).lean()
+      })
+
     if (!stay) throw new NotFoundException(`Accommodation '${slug}' not found`)
-    return stay
+    const [normalized] = await this.normalizeAccommodationDestinations([stay])
+    return normalized
   }
 
   async checkAvailability(id: string, checkIn: string, checkOut: string, guests: number) {
