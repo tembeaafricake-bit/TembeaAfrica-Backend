@@ -269,8 +269,8 @@ export class AdminService {
           : [],
       ])
 
-      const ownerMap = new Map(owners.map((owner: any) => [owner._id.toString(), owner]))
-      const destinationMap = new Map(destinations.map((dest: any) => [dest._id.toString(), dest]))
+      const ownerMap = new Map<string, any>(owners.map((owner: any): [string, any] => [owner._id.toString(), owner]))
+      const destinationMap = new Map<string, any>(destinations.map((dest: any): [string, any] => [dest._id.toString(), dest]))
 
       const data = rawData.map((item: any) => ({
         ...item,
