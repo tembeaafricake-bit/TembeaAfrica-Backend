@@ -254,15 +254,28 @@ export class AdminService {
           .map((item: any) => item.owner)
           .filter((owner): owner is string => typeof owner === 'string' && /^[0-9a-fA-F]{24}$/.test(owner)),
       ))
+      const validDestinationIds = Array.from(new Set(
+        rawData
+          .map((item: any) => item.destination)
+          .filter((id): id is string => typeof id === 'string' && /^[0-9a-fA-F]{24}$/.test(id)),
+      ))
 
-      const owners = validOwnerIds.length > 0
-        ? await this.userModel.find({ _id: { $in: validOwnerIds } }).select('firstName lastName email').lean()
-        : []
+      const [owners, destinations] = await Promise.all([
+        validOwnerIds.length > 0
+          ? this.userModel.find({ _id: { $in: validOwnerIds } }).select('firstName lastName email').lean()
+          : [],
+        validDestinationIds.length > 0
+          ? this.destinationModel.find({ _id: { $in: validDestinationIds } }).select('name slug country').lean()
+          : [],
+      ])
 
       const ownerMap = new Map(owners.map((owner: any) => [owner._id.toString(), owner]))
+      const destinationMap = new Map(destinations.map((dest: any) => [dest._id.toString(), dest]))
+
       const data = rawData.map((item: any) => ({
         ...item,
         owner: typeof item.owner === 'string' ? ownerMap.get(item.owner) || item.owner : item.owner,
+        destination: typeof item.destination === 'string' ? destinationMap.get(item.destination) || item.destination : item.destination,
       }))
 
       return { data, total, page, limit, totalPages: Math.ceil(total / (limit as number)) }
