@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common'
+import { Injectable, BadRequestException, NotFoundException, Logger } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model, Types, isValidObjectId } from 'mongoose'
 import { User, UserDocument } from '../users/schemas/user.schema'
@@ -25,6 +25,8 @@ export class AdminService {
     @InjectModel(Transport.name) private transportModel: Model<TransportDocument>,
     @InjectModel(Visit.name) private visitModel: Model<VisitDocument>,
   ) {}
+
+  private readonly logger = new Logger(AdminService.name)
 
   async getDashboardStats() {
     const now = new Date()
@@ -243,26 +245,49 @@ export class AdminService {
         throw new BadRequestException('Invalid listing type')
     }
 
-    let listQuery = model.find(filter).sort(sort).skip(skip).limit(limit as number)
-    
-    // Populate references with lenient error handling
-    if (type === 'guides') {
-      listQuery = listQuery.populate({
-        path: 'user',
-        select: 'firstName lastName email',
-        options: { strictPopulate: false }, // Don't throw on missing ref
-      })
-    }
     if (type === 'accommodations') {
-      listQuery = listQuery.populate({
-        path: 'owner',
-        select: 'firstName lastName email',
-        options: { strictPopulate: false },
-      })
+      const rawData = await model.find(filter).sort(sort).skip(skip).limit(limit as number).lean()
+      const total = await model.countDocuments(filter)
+
+      const validOwnerIds = Array.from(new Set(
+        rawData
+          .map((item: any) => item.owner)
+          .filter((owner): owner is string => typeof owner === 'string' && /^[0-9a-fA-F]{24}$/.test(owner)),
+      ))
+
+      const owners = validOwnerIds.length > 0
+        ? await this.userModel.find({ _id: { $in: validOwnerIds } }).select('firstName lastName email').lean()
+        : []
+
+      const ownerMap = new Map(owners.map((owner: any) => [owner._id.toString(), owner]))
+      const data = rawData.map((item: any) => ({
+        ...item,
+        owner: typeof item.owner === 'string' ? ownerMap.get(item.owner) || item.owner : item.owner,
+      }))
+
+      return { data, total, page, limit, totalPages: Math.ceil(total / (limit as number)) }
     }
 
+    const buildQuery = () => model.find(filter).sort(sort).skip(skip).limit(limit as number)
+
+    const enrichQuery = (query: any) => {
+      if (type === 'guides') {
+        return query.populate({
+          path: 'user',
+          select: 'firstName lastName email',
+          options: { strictPopulate: false },
+        })
+      }
+      return query
+    }
+
+    const listQuery = enrichQuery(buildQuery())
+
     const [data, total] = await Promise.all([
-      listQuery.lean(),
+      listQuery.lean().catch(async (error: Error) => {
+        this.logger.warn(`Admin listing query failed for type=${type}; returning unpopulated results.`, error)
+        return buildQuery().lean()
+      }),
       model.countDocuments(filter),
     ])
 
