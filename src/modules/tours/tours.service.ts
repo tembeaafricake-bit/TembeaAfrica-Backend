@@ -15,6 +15,7 @@ export interface ToursQuery {
   country?: string
   q?: string
   sort?: string
+  status?: string
   featured?: boolean
   instantBooking?: boolean
 }
@@ -50,9 +51,19 @@ export class ToursService {
 
   async findAll(query: ToursQuery) {
     try {
-      const { page = 1, limit = 12, destination, category, minPrice, maxPrice, rating, q, sort = 'rating', featured, instantBooking } = query
+      const { page = 1, limit = 12, destination, category, minPrice, maxPrice, rating, q, sort = 'rating', status, featured, instantBooking } = query
       const skip = (page - 1) * limit
-      const filter: FilterQuery<TourDocument> = { status: 'active', isDeleted: { $ne: true } }
+      const filter: FilterQuery<TourDocument> = {}
+      const includeAll = String(status || '').toLowerCase() === 'all'
+
+      if (!includeAll) {
+        if (status && status !== 'active') {
+          filter.status = status
+        } else {
+          filter.status = 'active'
+        }
+        filter.isDeleted = { $ne: true }
+      }
 
       const destinationId = await this.resolveDestinationId(destination)
       if (destination && destinationId) {
