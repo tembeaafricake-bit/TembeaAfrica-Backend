@@ -421,11 +421,23 @@ export class AdminService {
   async createListing(type: string, data: Record<string, unknown>) {
     switch (type) {
       case 'destinations': {
-        const slug = (data.slug as string) || this.generateSlug(data.name as string)
-        return this.destinationModel.create({ ...data, slug, status: data.status || 'active' })
+        const trimmedName = typeof data.name === 'string' ? data.name.trim() : ''
+        if (!trimmedName) {
+          throw new BadRequestException('A valid name is required for destinations')
+        }
+        const slug = (typeof data.slug === 'string' && data.slug.trim())
+          ? data.slug.trim()
+          : await this.ensureUniqueSlug(this.destinationModel, trimmedName, 'destination')
+        return this.destinationModel.create({ ...data, name: trimmedName, slug, status: data.status || 'active' })
       }
       case 'tours': {
-        const slug = (data.slug as string) || this.generateSlug(data.title as string)
+        const trimmedTitle = typeof data.title === 'string' ? data.title.trim() : ''
+        if (!trimmedTitle) {
+          throw new BadRequestException('A valid title is required for tours')
+        }
+        const slug = (typeof data.slug === 'string' && data.slug.trim())
+          ? data.slug.trim()
+          : await this.ensureUniqueSlug(this.tourModel, trimmedTitle, 'tour')
         if (data.destination) {
           const resolvedDestination = await this.resolveOrCreateDestinationId(data.destination)
           if (resolvedDestination) {
@@ -569,10 +581,20 @@ export class AdminService {
     switch (type) {
       case 'destinations': {
         model = this.destinationModel
+        if (typeof data.name === 'string' && data.name.trim() && !data.slug) {
+          data.slug = await this.ensureUniqueSlug(this.destinationModel, data.name.trim(), 'destination', id)
+        }
         break
       }
       case 'tours': {
         model = this.tourModel
+        if (typeof data.title === 'string' && data.title.trim() && !data.slug) {
+          const trimmedTitle = data.title.trim()
+          const existing = await this.tourModel.findById(id).select('slug').lean()
+          if (!existing?.slug) {
+            data.slug = await this.ensureUniqueSlug(this.tourModel, trimmedTitle, 'tour', id)
+          }
+        }
         if (data.destination) {
           const resolvedDestination = await this.resolveOrCreateDestinationId(data.destination)
           if (resolvedDestination) {
