@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { Model, FilterQuery } from 'mongoose'
+import { Model, FilterQuery, Types } from 'mongoose'
 import { Guide, GuideDocument } from './schemas/guide.schema'
 
 @Injectable()
@@ -41,6 +41,7 @@ export class GuidesService {
   }
 
   async findById(id: string) {
+    if (!Types.ObjectId.isValid(id)) throw new NotFoundException('Guide not found')
     const guide = await this.guideModel.findOne({ _id: id, isDeleted: { $ne: true } })
       .populate('user', 'firstName lastName avatar email phone')
       .populate('primaryDestination', 'name slug country heroImage')
@@ -50,6 +51,7 @@ export class GuidesService {
   }
 
   async checkAvailability(guideId: string, date: string) {
+    if (!Types.ObjectId.isValid(guideId)) throw new NotFoundException('Guide not found')
     const guide = await this.guideModel.findById(guideId)
     if (!guide) throw new NotFoundException('Guide not found')
     const isAvailable = guide.availability.length === 0 || guide.availability.includes(date)
