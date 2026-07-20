@@ -12,7 +12,9 @@ export class TransportService {
     const skip = ((page as number) - 1) * (limit as number)
     const filter: Record<string, unknown> = { isDeleted: { $ne: true } }
     if (status) filter.status = status
-    if (type) filter.type = type
+    if (type) {
+      filter.type = new RegExp(`^${type}$`, 'i')
+    }
     if (q) {
       filter.$or = [
         { name: new RegExp(q as string, 'i') },
