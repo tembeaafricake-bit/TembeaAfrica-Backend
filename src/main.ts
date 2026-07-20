@@ -18,7 +18,19 @@ async function bootstrap() {
   }))
 
   // Security
-  app.use(helmet())
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+          imgSrc: ["'self'", "data:", "https://res.cloudinary.com", "https://images.unsplash.com", "validator.swagger.io"],
+          fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        },
+      },
+    })
+  )
   app.use(cookieParser())
   app.use(compression())
   app.use(morgan('combined'))
