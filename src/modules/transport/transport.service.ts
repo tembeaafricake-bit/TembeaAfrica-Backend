@@ -13,7 +13,8 @@ export class TransportService {
     const filter: Record<string, unknown> = { isDeleted: { $ne: true } }
     if (status) filter.status = status
     if (type) {
-      filter.type = new RegExp(`^${type}$`, 'i')
+      const searchType = type === 'car' ? 'car|car rental' : type
+      filter.type = new RegExp(`^(${searchType})$`, 'i')
     }
     if (q) {
       filter.$or = [
