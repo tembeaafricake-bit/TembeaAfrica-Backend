@@ -296,13 +296,32 @@ export class AdminService {
 
     const listQuery = enrichQuery(buildQuery())
 
-    const [data, total] = await Promise.all([
+    const [rawDocs, total] = await Promise.all([
       listQuery.lean().catch(async (error: Error) => {
         this.logger.warn(`Admin listing query failed for type=${type}; returning unpopulated results.`, error)
         return buildQuery().lean()
       }),
       model.countDocuments(filter),
     ])
+
+    let data = rawDocs
+    if (type === 'destinations') {
+      data = await Promise.all(rawDocs.map(async (dest: any) => {
+        const nameRegex = dest.name ? new RegExp(dest.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '.*'), 'i') : null
+        const slugRegex = dest.slug ? new RegExp(dest.slug.replace(/[-_]/g, '.*'), 'i') : null
+        const count = await this.tourModel.countDocuments({
+          status: 'active',
+          isDeleted: { $ne: true },
+          $or: [
+            { destination: dest._id },
+            { destination: String(dest._id) },
+            ...(dest.slug ? [{ destination: dest.slug }, { destination: slugRegex }] : []),
+            ...(dest.name ? [{ destination: dest.name }, { destination: nameRegex }] : []),
+          ],
+        })
+        return { ...dest, tourCount: count || dest.tourCount || 0 }
+      }))
+    }
 
     return { data, total, page, limit, totalPages: Math.ceil(total / (limit as number)) }
   }
