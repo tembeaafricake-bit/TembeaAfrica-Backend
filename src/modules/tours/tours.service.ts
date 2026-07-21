@@ -65,11 +65,30 @@ export class ToursService {
         filter.isDeleted = { $ne: true }
       }
 
-      const destinationId = await this.resolveDestinationId(destination)
-      if (destination && destinationId) {
-        filter.destination = destinationId
-      } else if (destination) {
-        return { data: [], total: 0, page, limit, totalPages: 0 }
+      if (destination) {
+        const destinationId = await this.resolveDestinationId(destination)
+        const cleanName = destination.replace(/[-_]/g, ' ').trim()
+        const fuzzyRegex = new RegExp(cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '.*'), 'i')
+
+        let destName = ''
+        let destSlug = ''
+        if (destinationId) {
+          const doc = await this.destinationModel.findById(destinationId).lean()
+          if (doc) {
+            destName = doc.name
+            destSlug = doc.slug
+          }
+        }
+
+        const nameRegex = destName ? new RegExp(destName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '.*'), 'i') : null
+
+        filter.$or = [
+          ...(destinationId ? [{ destination: destinationId }, { destination: String(destinationId) }] : []),
+          { destination: destination },
+          { destination: fuzzyRegex },
+          ...(destName ? [{ destination: destName }, ...(nameRegex ? [{ destination: nameRegex }] : [])] : []),
+          ...(destSlug ? [{ destination: destSlug }] : []),
+        ]
       }
 
       if (category) filter.category = category
@@ -151,8 +170,36 @@ export class ToursService {
     return tour
   }
 
-  async findByDestination(destinationId: string, limit = 6) {
-    return this.tourModel.find({ destination: destinationId, status: 'active', isDeleted: { $ne: true } })
+  async findByDestination(destinationParam: string, limit = 6) {
+    const destinationId = await this.resolveDestinationId(destinationParam)
+    const cleanName = destinationParam.replace(/[-_]/g, ' ').trim()
+    const fuzzyRegex = new RegExp(cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '.*'), 'i')
+
+    let destName = ''
+    let destSlug = ''
+    if (destinationId) {
+      const doc = await this.destinationModel.findById(destinationId).lean()
+      if (doc) {
+        destName = doc.name
+        destSlug = doc.slug
+      }
+    }
+
+    const nameRegex = destName ? new RegExp(destName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '.*'), 'i') : null
+
+    const filter: FilterQuery<TourDocument> = {
+      status: 'active',
+      isDeleted: { $ne: true },
+      $or: [
+        ...(destinationId ? [{ destination: destinationId }, { destination: String(destinationId) }] : []),
+        { destination: destinationParam },
+        { destination: fuzzyRegex },
+        ...(destName ? [{ destination: destName }, ...(nameRegex ? [{ destination: nameRegex }] : [])] : []),
+        ...(destSlug ? [{ destination: destSlug }] : []),
+      ]
+    }
+
+    return this.tourModel.find(filter)
       .sort({ rating: -1 }).limit(limit)
       .populate('operator', 'firstName lastName avatar')
       .lean()

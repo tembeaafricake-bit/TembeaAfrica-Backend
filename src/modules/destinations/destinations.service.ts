@@ -2,10 +2,34 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model, FilterQuery, isValidObjectId } from 'mongoose'
 import { Destination, DestinationDocument } from './schemas/destination.schema'
+import { Tour, TourDocument } from '../tours/schemas/tour.schema'
 
 @Injectable()
 export class DestinationsService {
-  constructor(@InjectModel(Destination.name) private destModel: Model<DestinationDocument>) {}
+  constructor(
+    @InjectModel(Destination.name) private destModel: Model<DestinationDocument>,
+    @InjectModel(Tour.name) private tourModel: Model<TourDocument>,
+  ) {}
+
+  private async attachTourCount(dest: any) {
+    if (!dest) return dest
+    const nameRegex = dest.name ? new RegExp(dest.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '.*'), 'i') : null
+    const slugRegex = dest.slug ? new RegExp(dest.slug.replace(/[-_]/g, '.*'), 'i') : null
+    
+    // Also check if destination name contains tour destination string or vice versa
+    const count = await this.tourModel.countDocuments({
+      status: 'active',
+      isDeleted: { $ne: true },
+      $or: [
+        { destination: dest._id },
+        { destination: String(dest._id) },
+        ...(dest.slug ? [{ destination: dest.slug }, { destination: slugRegex }] : []),
+        ...(dest.name ? [{ destination: dest.name }, { destination: nameRegex }] : []),
+      ],
+    })
+
+    return { ...dest, tourCount: count || dest.tourCount || 0 }
+  }
 
   async findAll(query: Record<string, unknown>) {
     const { page = 1, limit = 20, country, q, sort = 'rating' } = query
@@ -16,15 +40,18 @@ export class DestinationsService {
     }
     if (q) filter.$text = { $search: q as string }
     const sortMap: Record<string, Record<string, 1 | -1>> = { rating: { rating: -1 }, name: { name: 1 }, newest: { createdAt: -1 } }
-    const [data, total] = await Promise.all([
+    const [rawDocs, total] = await Promise.all([
       this.destModel.find(filter).sort(sortMap[sort as string] || { rating: -1 }).skip(skip).limit(limit as number).lean(),
       this.destModel.countDocuments(filter),
     ])
+
+    const data = await Promise.all(rawDocs.map(d => this.attachTourCount(d)))
     return { data, total, page, limit, totalPages: Math.ceil(total / (limit as number)) }
   }
 
   async findFeatured() {
-    const data = await this.destModel.find({ featured: true, status: { $ne: 'inactive' }, isDeleted: { $ne: true } }).sort({ rating: -1 }).limit(8).lean()
+    const rawDocs = await this.destModel.find({ featured: true, status: { $ne: 'inactive' }, isDeleted: { $ne: true } }).sort({ rating: -1 }).limit(8).lean()
+    const data = await Promise.all(rawDocs.map(d => this.attachTourCount(d)))
     return { data }
   }
 
@@ -45,7 +72,7 @@ export class DestinationsService {
     }
     const dest = await this.destModel.findOne(query).lean()
     if (!dest) throw new NotFoundException(`Destination '${slug}' not found`)
-    return dest
+    return this.attachTourCount(dest)
   }
 
   async findByCountry(country: string) {
