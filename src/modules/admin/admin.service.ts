@@ -367,29 +367,22 @@ export class AdminService {
     if (!cleanValue) return undefined
     if (isValidObjectId(cleanValue)) return new Types.ObjectId(cleanValue)
 
+    const cleanName = cleanValue.replace(/[-_]/g, ' ').trim()
+    const fuzzyRegex = new RegExp(cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '.*'), 'i')
+
     const existing = await this.destinationModel.findOne({
       $or: [
         { slug: cleanValue },
+        { slug: this.buildSlug(cleanValue) },
         { name: new RegExp(`^${cleanValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        { name: fuzzyRegex },
       ],
-      isDeleted: false
+      isDeleted: { $ne: true }
     }).lean()
 
     if (existing) return existing._id as Types.ObjectId
 
-    const fallbackSlug = this.generateSlug(cleanValue)
-    const created = await this.destinationModel.create({
-      name: cleanValue,
-      slug: fallbackSlug,
-      description: `Auto-created destination for ${cleanValue}`,
-      country: 'kenya',
-      heroImage: 'https://images.unsplash.com/photo-1521295121783-8a321d551ad2?w=1200',
-      status: 'active',
-      featured: false,
-      isDeleted: false,
-    })
-
-    return created._id as Types.ObjectId
+    return undefined
   }
 
   private buildSlug(value: string) {
